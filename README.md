@@ -8,12 +8,12 @@
 
 [English](./README.en.md) | 中文
 
-[![Build Status](https://img.shields.io/github/actions/workflow/status/jiahe/source-fetcher/test.yml?branch=main)](https://github.com/jiahe/source-fetcher/actions)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/jiahe/source-fetcher)](https://go.dev/)
-[![License](https://img.shields.io/github/license/jiahe/source-fetcher)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/jiahe/source-fetcher)](https://github.com/jiahe/source-fetcher/releases)
-[![Downloads](https://img.shields.io/github/downloads/jiahe/source-fetcher/total)](https://github.com/jiahe/source-fetcher/releases)
-[![Stars](https://img.shields.io/github/stars/jiahe/source-fetcher?style=social)](https://github.com/jiahe/source-fetcher/stargazers)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/xjwm5685-ui/source-fetcher/test.yml?branch=main)](https://github.com/xjwm5685-ui/source-fetcher/actions)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/xjwm5685-ui/source-fetcher)](https://go.dev/)
+[![License](https://img.shields.io/github/license/xjwm5685-ui/source-fetcher)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/xjwm5685-ui/source-fetcher)](https://github.com/xjwm5685-ui/source-fetcher/releases)
+[![Downloads](https://img.shields.io/github/downloads/xjwm5685-ui/source-fetcher/total)](https://github.com/xjwm5685-ui/source-fetcher/releases)
+[![Stars](https://img.shields.io/github/stars/xjwm5685-ui/source-fetcher?style=social)](https://github.com/xjwm5685-ui/source-fetcher/stargazers)
 
 </div>
 
@@ -696,9 +696,9 @@ choco install:         ████░░░░░░░░  4MB/s
 
 ## 📞 联系方式
 
-- 🐛 [报告 Bug](https://github.com/jiahe/source-fetcher/issues/new?template=bug_report.md)
-- 💡 [功能建议](https://github.com/jiahe/source-fetcher/issues/new?template=feature_request.md)
-- 💬 [讨论区](https://github.com/jiahe/source-fetcher/discussions)
+- 🐛 [报告 Bug](https://github.com/xjwm5685-ui/source-fetcher/issues/new?template=bug_report.md)
+- 💡 [功能建议](https://github.com/xjwm5685-ui/source-fetcher/issues/new?template=feature_request.md)
+- 💬 [讨论区](https://github.com/xjwm5685-ui/source-fetcher/discussions)
 - ⭐ 如果觉得有用，请给个 Star！
 
 ## 📚 相关文档

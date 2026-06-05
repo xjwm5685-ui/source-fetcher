@@ -56,7 +56,7 @@ installs:
 #       - name: Setup Source Fetcher
 #         run: |
 #           # Download source-fetcher binary
-#           curl -L -o sfer.exe https://github.com/YOUR_USERNAME/source-fetcher/releases/latest/download/source-fetcher-windows-amd64.exe
+#           curl -L -o sfer.exe https://github.com/xjwm5685-ui/source-fetcher/releases/latest/download/source-fetcher-windows-amd64.exe
 #           chmod +x sfer.exe
 #       
 #       - name: Download Dependencies
@@ -81,7 +81,7 @@ installs:
 # dependencies:
 #   stage: dependencies
 #   script:
-#     - curl -L -o sfer.exe https://github.com/YOUR_USERNAME/source-fetcher/releases/download/${SFER_VERSION}/source-fetcher-windows-amd64.exe
+#     - curl -L -o sfer.exe https://github.com/xjwm5685-ui/source-fetcher/releases/download/${SFER_VERSION}/source-fetcher-windows-amd64.exe
 #     - ./sfer.exe batch --config ci-cd-integration.yaml --continue-on-error --retries 3 --retry-backoff 1s
 #   artifacts:
 #     paths:
@@ -113,7 +113,7 @@ installs:
 #   inputs:
 #     targetType: 'inline'
 #     script: |
-#       Invoke-WebRequest -Uri "https://github.com/YOUR_USERNAME/source-fetcher/releases/latest/download/source-fetcher-windows-amd64.exe" -OutFile "sfer.exe"
+#       Invoke-WebRequest -Uri "https://github.com/xjwm5685-ui/source-fetcher/releases/latest/download/source-fetcher-windows-amd64.exe" -OutFile "sfer.exe"
 # 
 # - task: PowerShell@2
 #   displayName: 'Download Dependencies'

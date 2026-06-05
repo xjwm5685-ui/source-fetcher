@@ -8,12 +8,12 @@
 
 English | [中文](./README.md)
 
-[![Build Status](https://img.shields.io/github/actions/workflow/status/jiahe/source-fetcher/test.yml?branch=main)](https://github.com/jiahe/source-fetcher/actions)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/jiahe/source-fetcher)](https://go.dev/)
-[![License](https://img.shields.io/github/license/jiahe/source-fetcher)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/jiahe/source-fetcher)](https://github.com/jiahe/source-fetcher/releases)
-[![Downloads](https://img.shields.io/github/downloads/jiahe/source-fetcher/total)](https://github.com/jiahe/source-fetcher/releases)
-[![Stars](https://img.shields.io/github/stars/jiahe/source-fetcher?style=social)](https://github.com/jiahe/source-fetcher/stargazers)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/xjwm5685-ui/source-fetcher/test.yml?branch=main)](https://github.com/xjwm5685-ui/source-fetcher/actions)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/xjwm5685-ui/source-fetcher)](https://go.dev/)
+[![License](https://img.shields.io/github/license/xjwm5685-ui/source-fetcher)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/xjwm5685-ui/source-fetcher)](https://github.com/xjwm5685-ui/source-fetcher/releases)
+[![Downloads](https://img.shields.io/github/downloads/xjwm5685-ui/source-fetcher/total)](https://github.com/xjwm5685-ui/source-fetcher/releases)
+[![Stars](https://img.shields.io/github/stars/xjwm5685-ui/source-fetcher?style=social)](https://github.com/xjwm5685-ui/source-fetcher/stargazers)
 
 </div>
 
@@ -733,9 +733,9 @@ This project is licensed under the [MIT License](LICENSE).
 
 ## 📞 Contact
 
-- 🐛 [Report Bug](https://github.com/jiahe/source-fetcher/issues/new?template=bug_report.md)
-- 💡 [Feature Request](https://github.com/jiahe/source-fetcher/issues/new?template=feature_request.md)
-- 💬 [Discussions](https://github.com/jiahe/source-fetcher/discussions)
+- 🐛 [Report Bug](https://github.com/xjwm5685-ui/source-fetcher/issues/new?template=bug_report.md)
+- 💡 [Feature Request](https://github.com/xjwm5685-ui/source-fetcher/issues/new?template=feature_request.md)
+- 💬 [Discussions](https://github.com/xjwm5685-ui/source-fetcher/discussions)
 - ⭐ Star us if you find it useful!
 
 ## 📚 Documentation
