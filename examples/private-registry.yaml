@@ -1,0 +1,100 @@
+# Private Registry Example
+# Shows how to work with private npm registries and authenticated sources
+
+output_dir: ./private-packages
+timeout: 120s
+
+# Authentication profiles
+auth_profiles:
+  # Private npm registry with bearer token
+  company-npm:
+    bearer_token_env: COMPANY_NPM_TOKEN  # Read from environment variable
+    headers:
+      X-Registry: internal
+      X-Team: engineering
+
+  # Private npm with basic auth
+  gitlab-npm:
+    basic_username: gitlab-ci-token
+    basic_password_env: CI_JOB_TOKEN
+
+  # Another private source
+  artifactory:
+    bearer_token_env: ARTIFACTORY_TOKEN
+    headers:
+      X-Artifactory-Client: source-fetcher
+
+# Downloads from private registries
+downloads:
+  # Download from company's private npm
+  - source: npm
+    name: "@company/core-utils"
+    version: latest
+    auth: company-npm          # Use company-npm auth profile
+    mirror: https://npm.company.com  # Custom registry URL
+    resume: true
+    chunks: 4
+
+  # Download from GitLab npm registry
+  - source: npm
+    name: "@gitlab-org/internal-lib"
+    version: "^2.0.0"
+    auth: gitlab-npm
+    mirror: https://gitlab.company.com/api/v4/packages/npm
+
+# Installations from private registries
+installs:
+  # Install private package
+  - source: npm
+    name: "@company/ui-components"
+    version: latest
+    auth: company-npm
+    mirror: https://npm.company.com
+    include_peer: true
+
+  # Install with mixed sources (public + private)
+  - source: npm
+    name: "@company/backend-sdk"
+    version: "^3.0.0"
+    auth: company-npm
+    mirror: https://npm.company.com
+    include_dev: true
+
+# Setup Instructions:
+# 
+# 1. Set environment variables:
+#    Windows:
+#      $env:COMPANY_NPM_TOKEN = "your-token-here"
+#      $env:CI_JOB_TOKEN = "gitlab-token-here"
+#      $env:ARTIFACTORY_TOKEN = "artifactory-token"
+#
+#    Linux/Mac:
+#      export COMPANY_NPM_TOKEN="your-token-here"
+#      export CI_JOB_TOKEN="gitlab-token-here"
+#      export ARTIFACTORY_TOKEN="artifactory-token"
+#
+# 2. Run the batch command:
+#    sfer batch --config examples/private-registry.yaml
+#
+# Security Notes:
+# - Never commit tokens to version control
+# - Use environment variables for sensitive data
+# - Consider using a secrets manager in production
+# - Rotate tokens regularly
+# - Use least-privilege tokens (read-only when possible)
+#
+# CI/CD Integration:
+# - Set tokens as CI/CD secrets
+# - Load them as environment variables in your pipeline
+# - Use separate tokens for different environments
+#
+# Example GitLab CI:
+#   variables:
+#     COMPANY_NPM_TOKEN: $CI_NPM_TOKEN
+#   script:
+#     - sfer batch --config private-registry.yaml
+#
+# Example GitHub Actions:
+#   env:
+#     COMPANY_NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+#   run: sfer batch --config private-registry.yaml

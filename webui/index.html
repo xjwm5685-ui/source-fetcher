@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Source Fetcher - Web GUI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Animated gradient background -->
+    <div class="gradient-bg">
+        <div class="gradient-orb orb-1"></div>
+        <div class="gradient-orb orb-2"></div>
+        <div class="gradient-orb orb-3"></div>
+    </div>
+    
+    <!-- Noise texture overlay -->
+    <div class="noise-overlay"></div>
+    
+    <div class="app-container">
+        <!-- Glassmorphic Header -->
+        <header class="glass-header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <div class="logo-icon">
+                        <svg width="32" height="32" viewBox="0 0 32 32" fill="none" class="animated-logo">
+                            <defs>
+                                <linearGradient id="logo-gradient" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+                                    <stop offset="0%" stop-color="#00d4ff">
+                                        <animate attributeName="stop-color" values="#00d4ff; #0099ff; #00d4ff" dur="3s" repeatCount="indefinite"/>
+                                    </stop>
+                                    <stop offset="50%" stop-color="#0099ff">
+                                        <animate attributeName="stop-color" values="#0099ff; #00ff88; #0099ff" dur="3s" repeatCount="indefinite"/>
+                                    </stop>
+                                    <stop offset="100%" stop-color="#00ff88">
+                                        <animate attributeName="stop-color" values="#00ff88; #00d4ff; #00ff88" dur="3s" repeatCount="indefinite"/>
+                                    </stop>
+                                </linearGradient>
+                                <linearGradient id="logo-shine" x1="0" y1="0" x2="32" y2="0" gradientUnits="userSpaceOnUse">
+                                    <stop offset="0%" stop-color="white" stop-opacity="0"/>
+                                    <stop offset="50%" stop-color="white" stop-opacity="0.4"/>
+                                    <stop offset="100%" stop-color="white" stop-opacity="0"/>
+                                    <animate attributeName="x1" values="-32; 32" dur="2s" repeatCount="indefinite"/>
+                                    <animate attributeName="x2" values="0; 64" dur="2s" repeatCount="indefinite"/>
+                                </linearGradient>
+                                <filter id="logo-glow">
+                                    <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                                    <feMerge>
+                                        <feMergeNode in="coloredBlur"/>
+                                        <feMergeNode in="SourceGraphic"/>
+                                    </feMerge>
+                                </filter>
+                            </defs>
+                            <rect width="32" height="32" rx="8" fill="url(#logo-gradient)" filter="url(#logo-glow)"/>
+                            <path d="M16 8L24 16L16 24L8 16L16 8Z" fill="white" fill-opacity="0.95">
+                                <animateTransform attributeName="transform" type="rotate" from="0 16 16" to="360 16 16" dur="20s" repeatCount="indefinite"/>
+                            </path>
+                            <circle cx="16" cy="16" r="3" fill="white" opacity="0.8"/>
+                            <rect x="0" y="0" width="32" height="32" rx="8" fill="url(#logo-shine)" opacity="0.5"/>
+                        </svg>
+                    </div>
+                    <div class="logo-text">
+                        <h1>Source Fetcher</h1>
+                        <p class="tagline">Unified Package Manager</p>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <div class="status-pill">
+                        <span class="status-dot"></span>
+                        <span id="versionBadge">v1.0.0</span>
+                    </div>
+                    <div class="queue-indicator" id="queueIndicator">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" class="queue-icon">
+                            <defs>
+                                <linearGradient id="queue-gradient" x1="0" y1="0" x2="20" y2="20">
+                                    <stop offset="0%" stop-color="currentColor" stop-opacity="0.8"/>
+                                    <stop offset="100%" stop-color="currentColor" stop-opacity="0.4"/>
+                                </linearGradient>
+                            </defs>
+                            <path d="M3 6h14M3 10h14M3 14h14" stroke="url(#queue-gradient)" stroke-width="2.5" stroke-linecap="round">
+                                <animate attributeName="stroke-dasharray" values="0,50; 50,0; 0,50" dur="2s" repeatCount="indefinite"/>
+                            </path>
+                        </svg>
+                        <span id="queueCount">0</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation Pills -->
+        <nav class="nav-pills">
+            <button class="nav-pill active" data-tab="search">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" class="nav-icon">
+                    <defs>
+                        <linearGradient id="search-grad" x1="0" y1="0" x2="20" y2="20">
+                            <stop offset="0%" stop-color="currentColor"/>
+                            <stop offset="100%" stop-color="currentColor" stop-opacity="0.5"/>
+                        </linearGradient>
+                        <filter id="icon-glow">
+                            <feGaussianBlur stdDeviation="1" result="coloredBlur"/>
+                            <feMerge>
+                                <feMergeNode in="coloredBlur"/>
+                                <feMergeNode in="SourceGraphic"/>
+                            </feMerge>
+                        </filter>
+                    </defs>
+                    <circle cx="9" cy="9" r="6" stroke="url(#search-grad)" stroke-width="2.5" filter="url(#icon-glow)"/>
+                    <path d="M13.5 13.5L17 17" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" filter="url(#icon-glow)">
+                        <animate attributeName="stroke-dasharray" values="0,10; 10,0" dur="1.5s" repeatCount="indefinite"/>
+                    </path>
+                </svg>
+                <span>Search</span>
+            </button>
+            <button class="nav-pill" data-tab="queue">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" class="nav-icon">
+                    <g filter="url(#icon-glow)">
+                        <path d="M3 6h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                            <animate attributeName="opacity" values="0.4; 1; 0.4" dur="2s" repeatCount="indefinite"/>
+                        </path>
+                        <path d="M3 10h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                            <animate attributeName="opacity" values="0.4; 1; 0.4" dur="2s" begin="0.3s" repeatCount="indefinite"/>
+                        </path>
+                        <path d="M3 14h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                            <animate attributeName="opacity" values="0.4; 1; 0.4" dur="2s" begin="0.6s" repeatCount="indefinite"/>
+                        </path>
+                    </g>
+                </svg>
+                <span>Queue</span>
+                <span class="pill-badge" id="queueBadge">0</span>
+            </button>
+            <button class="nav-pill" data-tab="mirrors">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" class="nav-icon">
+                    <defs>
+                        <linearGradient id="mirror-grad" x1="0" y1="0" x2="20" y2="20">
+                            <stop offset="0%" stop-color="currentColor"/>
+                            <stop offset="100%" stop-color="currentColor" stop-opacity="0.4"/>
+                        </linearGradient>
+                    </defs>
+                    <circle cx="10" cy="10" r="7" stroke="url(#mirror-grad)" stroke-width="2.5" filter="url(#icon-glow)">
+                        <animate attributeName="r" values="7; 7.5; 7" dur="2s" repeatCount="indefinite"/>
+                    </circle>
+                    <path d="M10 3v14M3 10h14" stroke="currentColor" stroke-width="2.5" filter="url(#icon-glow)"/>
+                    <circle cx="10" cy="10" r="2" fill="currentColor" opacity="0.6">
+                        <animate attributeName="opacity" values="0.6; 1; 0.6" dur="1.5s" repeatCount="indefinite"/>
+                    </circle>
+                </svg>
+                <span>Mirrors</span>
+            </button>
+            <button class="nav-pill" data-tab="about">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" class="nav-icon">
+                    <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="2.5" filter="url(#icon-glow)"/>
+                    <path d="M10 14v-4M10 7h.01" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" filter="url(#icon-glow)"/>
+                    <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="0.5" opacity="0.3">
+                        <animate attributeName="r" values="7; 9; 7" dur="2s" repeatCount="indefinite"/>
+                        <animate attributeName="opacity" values="0.3; 0; 0.3" dur="2s" repeatCount="indefinite"/>
+                    </circle>
+                </svg>
+                <span>About</span>
+            </button>
+        </nav>
+
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Search Tab -->
+            <div id="search" class="tab-pane active">
+                <div class="bento-grid">
+                    <!-- Search Form Card -->
+                    <div class="glass-card search-form-card">
+                        <div class="card-header">
+                            <h2>Search Packages</h2>
+                            <p class="card-subtitle">Find packages across multiple sources</p>
+                        </div>
+                        <form id="searchForm" class="modern-form">
+                            <div class="form-group">
+                                <label>Source</label>
+                                <div class="custom-select" id="searchSourceSelect" data-value="all">
+                                    <div class="custom-select-trigger">
+                                        <span class="custom-select-value">All Sources</span>
+                                        <svg class="custom-select-arrow" viewBox="0 0 20 20" fill="none">
+                                            <path d="M5 7.5l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                        </svg>
+                                    </div>
+                                    <div class="custom-select-dropdown">
+                                        <div class="custom-select-option selected" data-value="all">All Sources</div>
+                                        <div class="custom-select-option" data-value="npm">npm</div>
+                                        <div class="custom-select-option" data-value="choco">Chocolatey</div>
+                                        <div class="custom-select-option" data-value="winget">Winget</div>
+                                        <div class="custom-select-option" data-value="pip">pip (Python)</div>
+                                        <div class="custom-select-option" data-value="cargo">cargo (Rust)</div>
+                                        <div class="custom-select-option" data-value="maven">maven (Java)</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Query</label>
+                                <input type="text" id="searchQuery" class="glass-input" placeholder="Try: react, vue, typescript..." required>
+                                <small style="color: var(--gray-600); font-size: 0.875rem; margin-top: 4px; display: block;">
+                                    💡 Tip: Press <span class="kbd">Ctrl+K</span> to focus search, results update as you type
+                                </small>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Mirror</label>
+                                    <input type="text" id="searchMirror" class="glass-input" placeholder="Optional">
+                                </div>
+                                <div class="form-group">
+                                    <label>Limit</label>
+                                    <input type="number" id="searchLimit" class="glass-input" value="10" min="1" max="100">
+                                </div>
+                            </div>
+                            <button type="submit" class="primary-button">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" class="button-icon">
+                                    <defs>
+                                        <linearGradient id="search-btn-grad" x1="0" y1="0" x2="20" y2="20">
+                                            <stop offset="0%" stop-color="white"/>
+                                            <stop offset="100%" stop-color="white" stop-opacity="0.7"/>
+                                        </linearGradient>
+                                    </defs>
+                                    <circle cx="9" cy="9" r="6" stroke="url(#search-btn-grad)" stroke-width="2.5"/>
+                                    <path d="M13.5 13.5L17 17" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+                                </svg>
+                                <span>Search Packages</span>
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Results Card -->
+                    <div class="glass-card results-card">
+                        <div class="card-header">
+                            <div>
+                                <h2>Results</h2>
+                                <p class="card-subtitle" id="resultsCount">0 packages found</p>
+                            </div>
+                            <div class="action-buttons">
+                                <button id="downloadBtn" class="icon-button success" disabled title="Download Selected (D)">
+                                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" class="action-icon">
+                                        <defs>
+                                            <linearGradient id="download-grad" x1="10" y1="3" x2="10" y2="17">
+                                                <stop offset="0%" stop-color="currentColor" stop-opacity="0.4"/>
+                                                <stop offset="100%" stop-color="currentColor"/>
+                                            </linearGradient>
+                                        </defs>
+                                        <path d="M10 3v10" stroke="url(#download-grad)" stroke-width="2.5" stroke-linecap="round">
+                                            <animate attributeName="stroke-dasharray" values="0,13; 13,0" dur="1.2s" repeatCount="indefinite"/>
+                                        </path>
+                                        <path d="M10 13l-4-4m4 4l4-4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                                        <path d="M3 17h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                                    </svg>
+                                </button>
+                                <button id="installBtn" class="icon-button primary" disabled title="Install Selected (I) - npm packages only">
+                                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" class="action-icon">
+                                        <defs>
+                                            <linearGradient id="install-grad" x1="10" y1="3" x2="10" y2="17">
+                                                <stop offset="0%" stop-color="currentColor" stop-opacity="0.4"/>
+                                                <stop offset="100%" stop-color="currentColor"/>
+                                            </linearGradient>
+                                        </defs>
+                                        <path d="M10 3v10" stroke="url(#install-grad)" stroke-width="2.5" stroke-linecap="round">
+                                            <animate attributeName="stroke-dasharray" values="0,13; 13,0" dur="1s" repeatCount="indefinite"/>
+                                        </path>
+                                        <path d="M10 13l-4-4m4 4l4-4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                                        <rect x="3" y="13" width="14" height="4" rx="1" stroke="currentColor" stroke-width="2.5" fill="currentColor" fill-opacity="0.1"/>
+                                    </svg>
+                                </button>
+                                <button id="selectAllBtn" class="icon-button" disabled title="Select All (Ctrl+A)">
+                                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" class="action-icon">
+                                        <rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="2.5"/>
+                                        <path d="M7 10l2 2 4-4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                            <animate attributeName="stroke-dasharray" values="0,20; 20,0" dur="1.5s" repeatCount="indefinite"/>
+                                        </path>
+                                    </svg>
+                                </button>
+                                <button id="clearSelectionBtn" class="icon-button" disabled title="Clear Selection (Esc)">
+                                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" class="action-icon">
+                                        <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="2.5" opacity="0.2"/>
+                                        <path d="M7 7l6 6M13 7L7 13" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="resultsContainer" class="results-list">
+                            <div class="empty-state">
+                                <svg width="64" height="64" viewBox="0 0 64 64" fill="none" class="empty-icon">
+                                    <defs>
+                                        <linearGradient id="empty-grad" x1="0" y1="0" x2="64" y2="64">
+                                            <stop offset="0%" stop-color="currentColor" stop-opacity="0.3"/>
+                                            <stop offset="100%" stop-color="currentColor" stop-opacity="0.1"/>
+                                        </linearGradient>
+                                        <filter id="empty-glow">
+                                            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                                            <feMerge>
+                                                <feMergeNode in="coloredBlur"/>
+                                                <feMergeNode in="SourceGraphic"/>
+                                            </feMerge>
+                                        </filter>
+                                    </defs>
+                                    <circle cx="28" cy="28" r="20" stroke="url(#empty-grad)" stroke-width="4" filter="url(#empty-glow)">
+                                        <animate attributeName="stroke-dasharray" values="0,126; 126,0; 0,126" dur="3s" repeatCount="indefinite"/>
+                                    </circle>
+                                    <path d="M42 42L54 54" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity="0.2" filter="url(#empty-glow)"/>
+                                    <circle cx="28" cy="28" r="12" fill="currentColor" opacity="0.05">
+                                        <animate attributeName="r" values="12; 15; 12" dur="2s" repeatCount="indefinite"/>
+                                        <animate attributeName="opacity" values="0.05; 0.1; 0.05" dur="2s" repeatCount="indefinite"/>
+                                    </circle>
+                                </svg>
+                                <p>Start searching to see results</p>
+                                <small style="color: var(--gray-500); margin-top: 8px;">💡 Double-click a result to copy its name</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Detail Panel -->
+                    <div class="glass-card detail-card">
+                        <div class="card-header">
+                            <h2>Details</h2>
+                            <div class="action-buttons">
+                                <!-- Copy button will be added dynamically -->
+                            </div>
+                        </div>
+                        <pre id="detailText" class="detail-content">Select a package to view details...</pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Queue Tab -->
+            <div id="queue" class="tab-pane">
+                <div class="glass-card full-width">
+                    <div class="card-header">
+                        <div>
+                            <h2>Task Queue</h2>
+                            <p class="card-subtitle">All tasks are executed sequentially</p>
+                        </div>
+                        <div class="action-buttons">
+                            <button id="refreshQueueBtn" class="icon-button">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" class="action-icon">
+                                    <defs>
+                                        <linearGradient id="refresh-grad" x1="0" y1="0" x2="20" y2="20">
+                                            <stop offset="0%" stop-color="currentColor"/>
+                                            <stop offset="100%" stop-color="currentColor" stop-opacity="0.5"/>
+                                        </linearGradient>
+                                    </defs>
+                                    <path d="M17 10a7 7 0 11-14 0 7 7 0 0114 0z" stroke="url(#refresh-grad)" stroke-width="2.5" fill="currentColor" fill-opacity="0.05">
+                                        <animateTransform attributeName="transform" type="rotate" from="0 10 10" to="360 10 10" dur="3s" repeatCount="indefinite"/>
+                                    </path>
+                                    <path d="M10 6v4l3 2" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                                </svg>
+                            </button>
+                            <button id="clearQueueBtn" class="icon-button danger">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" class="action-icon">
+                                    <defs>
+                                        <linearGradient id="delete-grad" x1="0" y1="0" x2="20" y2="20">
+                                            <stop offset="0%" stop-color="currentColor"/>
+                                            <stop offset="100%" stop-color="currentColor" stop-opacity="0.6"/>
+                                        </linearGradient>
+                                    </defs>
+                                    <path d="M7 3h6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                                    <path d="M3 6h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                                    <path d="M5 6l1 11a2 2 0 002 2h4a2 2 0 002-2l1-11" stroke="url(#delete-grad)" stroke-width="2.5" stroke-linecap="round"/>
+                                    <path d="M8 9v6M12 9v6" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="queueContainer" class="queue-list">
+                        <div class="empty-state">
+                            <svg width="64" height="64" viewBox="0 0 64 64" fill="none" class="empty-icon">
+                                <defs>
+                                    <linearGradient id="queue-empty-grad" x1="0" y1="0" x2="64" y2="64">
+                                        <stop offset="0%" stop-color="currentColor" stop-opacity="0.3"/>
+                                        <stop offset="100%" stop-color="currentColor" stop-opacity="0.1"/>
+                                    </linearGradient>
+                                </defs>
+                                <rect x="12" y="16" width="40" height="8" rx="2" stroke="url(#queue-empty-grad)" stroke-width="4" fill="currentColor" fill-opacity="0.05">
+                                    <animate attributeName="opacity" values="0.3; 1; 0.3" dur="2s" repeatCount="indefinite"/>
+                                </rect>
+                                <rect x="12" y="28" width="40" height="8" rx="2" stroke="url(#queue-empty-grad)" stroke-width="4" fill="currentColor" fill-opacity="0.05">
+                                    <animate attributeName="opacity" values="0.3; 1; 0.3" dur="2s" begin="0.4s" repeatCount="indefinite"/>
+                                </rect>
+                                <rect x="12" y="40" width="40" height="8" rx="2" stroke="url(#queue-empty-grad)" stroke-width="4" fill="currentColor" fill-opacity="0.05">
+                                    <animate attributeName="opacity" values="0.3; 1; 0.3" dur="2s" begin="0.8s" repeatCount="indefinite"/>
+                                </rect>
+                            </svg>
+                            <p>Queue is empty</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mirrors Tab -->
+            <div id="mirrors" class="tab-pane">
+                <div class="glass-card full-width">
+                    <div class="card-header">
+                        <div>
+                            <h2>Mirror Speed Test</h2>
+                            <p class="card-subtitle">Test mirror latency and availability</p>
+                        </div>
+                    </div>
+                    <form id="mirrorForm" class="modern-form inline-form">
+                        <div class="form-group">
+                            <label>Source</label>
+                            <div class="custom-select" id="mirrorSourceSelect" data-value="all">
+                                <div class="custom-select-trigger">
+                                    <span class="custom-select-value">All Sources</span>
+                                    <svg class="custom-select-arrow" viewBox="0 0 20 20" fill="none">
+                                        <path d="M5 7.5l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                    </svg>
+                                </div>
+                                <div class="custom-select-dropdown">
+                                    <div class="custom-select-option selected" data-value="all">All Sources</div>
+                                    <div class="custom-select-option" data-value="npm">npm</div>
+                                    <div class="custom-select-option" data-value="choco">Chocolatey</div>
+                                    <div class="custom-select-option" data-value="winget">Winget</div>
+                                    <div class="custom-select-option" data-value="pip">pip (Python)</div>
+                                    <div class="custom-select-option" data-value="cargo">cargo (Rust)</div>
+                                    <div class="custom-select-option" data-value="maven">maven (Java)</div>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="primary-button">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" class="button-icon">
+                                <defs>
+                                    <linearGradient id="mirror-btn-grad" x1="0" y1="0" x2="20" y2="20">
+                                        <stop offset="0%" stop-color="white"/>
+                                        <stop offset="100%" stop-color="white" stop-opacity="0.6"/>
+                                    </linearGradient>
+                                </defs>
+                                <circle cx="10" cy="10" r="7" stroke="url(#mirror-btn-grad)" stroke-width="2.5">
+                                    <animate attributeName="r" values="7; 8; 7" dur="2s" repeatCount="indefinite"/>
+                                </circle>
+                                <path d="M10 3v14M3 10h14" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+                                <circle cx="10" cy="10" r="2" fill="white" opacity="0.8">
+                                    <animate attributeName="opacity" values="0.8; 1; 0.8" dur="1.5s" repeatCount="indefinite"/>
+                                </circle>
+                            </svg>
+                            <span>Test Mirrors</span>
+                        </button>
+                    </form>
+                    <div id="mirrorResults" class="mirror-grid">
+                        <div class="empty-state">
+                            <svg width="64" height="64" viewBox="0 0 64 64" fill="none" class="empty-icon">
+                                <defs>
+                                    <linearGradient id="mirror-empty-grad" x1="0" y1="0" x2="64" y2="64">
+                                        <stop offset="0%" stop-color="currentColor" stop-opacity="0.3"/>
+                                        <stop offset="100%" stop-color="currentColor" stop-opacity="0.1"/>
+                                    </linearGradient>
+                                </defs>
+                                <circle cx="32" cy="32" r="24" stroke="url(#mirror-empty-grad)" stroke-width="4" fill="currentColor" fill-opacity="0.03">
+                                    <animate attributeName="r" values="24; 26; 24" dur="3s" repeatCount="indefinite"/>
+                                </circle>
+                                <path d="M32 8v48M8 32h48" stroke="currentColor" stroke-width="4" opacity="0.2"/>
+                                <circle cx="32" cy="32" r="4" fill="currentColor" opacity="0.3">
+                                    <animate attributeName="opacity" values="0.3; 0.6; 0.3" dur="2s" repeatCount="indefinite"/>
+                                </circle>
+                                <circle cx="32" cy="32" r="16" stroke="currentColor" stroke-width="1" opacity="0.15">
+                                    <animate attributeName="r" values="16; 20; 16" dur="2s" repeatCount="indefinite"/>
+                                    <animate attributeName="opacity" values="0.15; 0; 0.15" dur="2s" repeatCount="indefinite"/>
+                                </circle>
+                            </svg>
+                            <p>Click "Test Mirrors" to start</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- About Tab -->
+            <div id="about" class="tab-pane">
+                <div class="glass-card full-width about-content">
+                    <div class="about-hero">
+                        <div class="logo-large">
+                            <svg width="80" height="80" viewBox="0 0 80 80" fill="none" class="about-logo">
+                                <defs>
+                                    <linearGradient id="about-gradient" x1="0" y1="0" x2="80" y2="80" gradientUnits="userSpaceOnUse">
+                                        <stop offset="0%" stop-color="#00d4ff">
+                                            <animate attributeName="stop-color" values="#00d4ff; #0099ff; #00ff88; #00d4ff" dur="5s" repeatCount="indefinite"/>
+                                        </stop>
+                                        <stop offset="50%" stop-color="#0099ff">
+                                            <animate attributeName="stop-color" values="#0099ff; #00ff88; #ff00ff; #0099ff" dur="5s" repeatCount="indefinite"/>
+                                        </stop>
+                                        <stop offset="100%" stop-color="#00ff88">
+                                            <animate attributeName="stop-color" values="#00ff88; #ff00ff; #00d4ff; #00ff88" dur="5s" repeatCount="indefinite"/>
+                                        </stop>
+                                    </linearGradient>
+                                    <filter id="about-glow">
+                                        <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+                                        <feMerge>
+                                            <feMergeNode in="coloredBlur"/>
+                                            <feMergeNode in="SourceGraphic"/>
+                                        </feMerge>
+                                    </filter>
+                                    <linearGradient id="about-shine" x1="0" y1="0" x2="80" y2="0">
+                                        <stop offset="0%" stop-color="white" stop-opacity="0"/>
+                                        <stop offset="50%" stop-color="white" stop-opacity="0.5"/>
+                                        <stop offset="100%" stop-color="white" stop-opacity="0"/>
+                                        <animate attributeName="x1" values="-80; 80" dur="3s" repeatCount="indefinite"/>
+                                        <animate attributeName="x2" values="0; 160" dur="3s" repeatCount="indefinite"/>
+                                    </linearGradient>
+                                </defs>
+                                <rect width="80" height="80" rx="20" fill="url(#about-gradient)" filter="url(#about-glow)"/>
+                                <path d="M40 20L60 40L40 60L20 40L40 20Z" fill="white" fill-opacity="0.95">
+                                    <animateTransform attributeName="transform" type="rotate" from="0 40 40" to="360 40 40" dur="20s" repeatCount="indefinite"/>
+                                </path>
+                                <circle cx="40" cy="40" r="8" fill="white" opacity="0.8">
+                                    <animate attributeName="r" values="8; 10; 8" dur="2s" repeatCount="indefinite"/>
+                                </circle>
+                                <circle cx="40" cy="40" r="15" stroke="white" stroke-width="2" opacity="0.4" fill="none">
+                                    <animate attributeName="r" values="15; 20; 15" dur="3s" repeatCount="indefinite"/>
+                                    <animate attributeName="opacity" values="0.4; 0; 0.4" dur="3s" repeatCount="indefinite"/>
+                                </circle>
+                                <rect x="0" y="0" width="80" height="80" rx="20" fill="url(#about-shine)" opacity="0.3"/>
+                            </svg>
+                        </div>
+                        <h1>Source Fetcher</h1>
+                        <p class="version-text">Version <span id="aboutVersion">1.0.0</span></p>
+                    </div>
+                    
+                    <div class="about-grid">
+                        <div class="about-section">
+                            <h3>About</h3>
+                            <p>A unified package manager for downloading and installing packages from multiple sources with a beautiful, modern interface.</p>
+                        </div>
+                        
+                        <div class="about-section">
+                            <h3>Supported Sources</h3>
+                            <ul class="feature-list">
+                                <li><strong>npm</strong> — Node.js packages</li>
+                                <li><strong>Chocolatey</strong> — Windows packages</li>
+                                <li><strong>Winget</strong> — Windows Package Manager</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="about-section">
+                            <h3>Features</h3>
+                            <ul class="feature-list">
+                                <li>Search packages across multiple sources</li>
+                                <li>Download with resume support</li>
+                                <li>Install with dependency resolution</li>
+                                <li>Mirror support for faster downloads</li>
+                                <li>Batch operations via YAML config</li>
+                                <li>Keyboard shortcuts for power users</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="about-section">
+                            <h3>Keyboard Shortcuts</h3>
+                            <ul class="feature-list">
+                                <li><span class="kbd">Ctrl+K</span> Focus search</li>
+                                <li><span class="kbd">1-4</span> Switch tabs</li>
+                                <li><span class="kbd">D</span> Download selected</li>
+                                <li><span class="kbd">I</span> Install selected</li>
+                                <li><span class="kbd">?</span> Show all shortcuts</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="about-section">
+                            <h3>Credits</h3>
+                            <p><strong>Author:</strong> jiahe<br>
+                            <strong>Email:</strong> ckkhua89@gmail.com<br>
+                            <strong>License:</strong> MIT</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Floating Status Bar -->
+        <div class="floating-status">
+            <div class="status-content">
+                <span id="statusText">Ready</span>
+                <span id="statusTime" class="status-time"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-spinner">
+            <div class="spinner-ring"></div>
+            <div class="spinner-ring"></div>
+            <div class="spinner-ring"></div>
+        </div>
+        <p id="loadingText" class="loading-text">Loading...</p>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

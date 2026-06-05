@@ -1,0 +1,60 @@
+# Basic Download Example
+# This example shows simple package downloads from different sources
+
+# Global settings
+output_dir: ./downloads
+timeout: 60s
+
+# Download tasks
+downloads:
+  # npm package
+  - source: npm
+    name: react
+    version: latest
+    mirror: npmmirror  # Use Chinese mirror for faster download
+    resume: true        # Enable resume if download is interrupted
+    chunks: 4           # Use 4 concurrent chunks for faster download
+
+  # Another npm package with specific version
+  - source: npm
+    name: vue
+    version: "3.4.0"
+    mirror: npmmirror
+
+  # PyPI package
+  - source: pip
+    name: requests
+    version: latest
+
+  # Cargo package
+  - source: cargo
+    name: serde
+    version: latest
+
+  # Maven artifact
+  - source: maven
+    name: junit:junit
+    version: "4.13.2"
+
+  # Chocolatey package
+  - source: choco
+    name: git
+    version: latest
+
+  # Windows package via winget
+  - source: winget
+    name: Microsoft.PowerToys
+    # No version means latest
+
+  # Direct URL download
+  - source: url
+    url: https://nodejs.org/dist/v20.11.0/node-v20.11.0-x64.msi
+    # Filename will be extracted from URL
+
+# Usage:
+# sfer batch --config examples/basic-download.yaml
+#
+# Options:
+# --plan                    Preview without downloading
+# --continue-on-error       Continue if one download fails
+# --jobs 2                  Download 2 packages concurrently

@@ -1,0 +1,196 @@
+# golangci-lint configuration for Source Fetcher
+
+run:
+  timeout: 5m
+  tests: true
+  build-tags: []
+  skip-dirs:
+    - vendor
+    - third_party
+    - testdata
+    - examples
+    - .git
+  skip-files:
+    - ".*\\.pb\\.go$"
+    - ".*\\.gen\\.go$"
+
+linters:
+  enable:
+    # Enabled by default
+    - errcheck      # Check for unchecked errors
+    - gosimple      # Simplify code
+    - govet         # Vet examines Go source code
+    - ineffassign   # Detect ineffectual assignments
+    - staticcheck   # Static analysis
+    - unused        # Check for unused code
+    
+    # Additional useful linters
+    - gofmt         # Check if code is formatted
+    - goimports     # Check imports formatting
+    - misspell      # Fix spelling errors
+    - revive        # Fast linter
+    - unconvert     # Remove unnecessary type conversions
+    - unparam       # Report unused function parameters
+    - gosec         # Security checker
+    - bodyclose     # Check if HTTP response bodies are closed
+    - noctx         # Find http.Request without context
+    - rowserrcheck  # Check if Rows.Err is checked
+    - sqlclosecheck # Check sql.Rows and sql.Stmt are closed
+    - gocritic      # Go source code linter
+    - gocyclo       # Cyclomatic complexity
+    - dupl          # Code cloning detection
+    - prealloc      # Suggest slice preallocations
+    - exportloopref # Check for loop variable capture issues
+    - nilerr        # Find nil returns with non-nil error
+    - nilnil        # Check nil returns with nil error
+    - errname       # Check error naming conventions
+    - errorlint     # Error wrapping checks
+    - whitespace    # Whitespace linter
+    - wsl           # Whitespace linter (less strict)
+
+  disable:
+    - deadcode      # Deprecated, replaced by unused
+    - varcheck      # Deprecated, replaced by unused
+    - structcheck   # Deprecated, replaced by unused
+    - ifshort       # Deprecated
+    - golint        # Deprecated, replaced by revive
+    - maligned      # Deprecated, replaced by govet
+    - scopelint     # Deprecated, replaced by exportloopref
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+    exclude-functions:
+      - (io.Closer).Close
+      - (*os.File).Close
+
+  govet:
+    enable-all: true
+    disable:
+      - shadow
+      - fieldalignment  # Can be noisy
+
+  gofmt:
+    simplify: true
+
+  goimports:
+    local-prefixes: github.com/yourusername/source-fetcher
+
+  misspell:
+    locale: US
+    ignore-words:
+      - cancelled
+
+  revive:
+    severity: warning
+    confidence: 0.8
+    rules:
+      - name: blank-imports
+      - name: context-as-argument
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: exported
+      - name: if-return
+      - name: increment-decrement
+      - name: var-naming
+      - name: package-comments
+      - name: range
+      - name: receiver-naming
+      - name: indent-error-flow
+      - name: superfluous-else
+      - name: unreachable-code
+      - name: redefines-builtin-id
+
+  gosec:
+    severity: medium
+    confidence: medium
+    excludes:
+      - G104  # Audit errors not checked (covered by errcheck)
+      - G304  # File path from variable (too many false positives)
+    config:
+      G301: "0644"  # File permission
+      G302: "0644"  # File permission
+      G306: "0644"  # File permission
+
+  gocyclo:
+    min-complexity: 15
+
+  dupl:
+    threshold: 100
+
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+      - experimental
+      - opinionated
+    disabled-checks:
+      - whyNoLint
+      - unnamedResult
+      - hugeParam
+
+  prealloc:
+    simple: true
+    range-loops: true
+    for-loops: true
+
+  whitespace:
+    multi-if: true
+    multi-func: true
+
+  wsl:
+    allow-cuddle-declarations: true
+    allow-trailing-comment: true
+    force-err-cuddling: false
+
+issues:
+  exclude-rules:
+    # Exclude some linters from running on tests files
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - errcheck
+        - dupl
+        - gosec
+        - gocritic
+        - funlen
+        - gocognit
+
+    # Exclude some staticcheck messages
+    - linters:
+        - staticcheck
+      text: "SA1019:"  # Deprecation warnings
+
+    # Exclude some gosec messages
+    - linters:
+        - gosec
+      text: "G104:"  # Audit errors not checked
+
+    # Ignore complexity in main.go
+    - path: main\.go
+      linters:
+        - gocyclo
+        - gocognit
+
+  # Maximum issues count per one linter
+  max-issues-per-linter: 50
+
+  # Maximum count of issues with the same text
+  max-same-issues: 3
+
+  # Show only new issues created since this date
+  # new-from-rev: origin/main
+
+  # Independently of option `exclude` we use default exclude patterns
+  exclude-use-default: true
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+  uniq-by-line: true
+  sort-results: true

@@ -1,0 +1,67 @@
+# Basic Installation Example
+# This example shows how to install npm packages with dependency management
+
+# Global settings
+output_dir: ./my-project
+timeout: 120s
+
+# Installation defaults
+install_defaults:
+  scripts_policy: none  # Don't run lifecycle scripts by default (none/root/all)
+  allow_scripts: []     # No packages allowed to run preinstall scripts
+
+# Install tasks
+installs:
+  # Install React with default settings
+  - source: npm
+    name: react
+    version: "^18.0.0"
+    mirror: npmmirror
+
+  # Install Express with peer dependencies
+  - source: npm
+    name: express
+    version: latest
+    include_peer: true      # Include peer dependencies
+    omit_optional: true     # Skip optional dependencies
+
+  # Install a dev tool with scripts enabled for root package only
+  - source: npm
+    name: typescript
+    version: "~5.3.0"
+    include_dev: true       # Include devDependencies
+    scripts_policy: root    # Run scripts only for root package
+
+  # Install with specific packages allowed to run scripts
+  - source: npm
+    name: sharp
+    version: latest
+    scripts_policy: all     # Enable scripts
+    allow_scripts:          # But only for these packages
+      - sharp
+      - esbuild
+
+# Advanced install example with lockfile
+# installs:
+#   - source: npm
+#     name: next
+#     version: "^14.0.0"
+#     frozen_lockfile: true           # Require exact lockfile match
+#     lockfile: ./source-fetcher-install.lock.json
+
+# Usage:
+# sfer batch --config examples/basic-install.yaml
+#
+# After installation, you'll have:
+# - ./my-project/node_modules/       <- Installed packages
+# - ./my-project/.source-fetcher/    <- Cache directory
+#   - tarballs/                      <- Downloaded .tgz files
+#   - store/                         <- Extracted packages
+# - ./my-project/source-fetcher-install.json      <- Installation manifest
+# - ./my-project/source-fetcher-install.lock.json <- Lockfile
+#
+# Uninstall:
+# sfer uninstall --output ./my-project
+#
+# Repair:
+# sfer repair --output ./my-project

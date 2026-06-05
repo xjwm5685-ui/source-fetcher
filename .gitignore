@@ -1,0 +1,61 @@
+tmp-downloads/
+downloads-progress-test/
+*.exe
+/.source-fetcher/
+**/.source-fetcher/
+/workspace/
+/tmp-codex-fix/
+/source-fetcher-install.json
+/source-fetcher-install.lock.json
+/*.tgz
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Test coverage
+coverage.out
+*.coverprofile
+
+# Build artifacts
+dist/
+build/
+bin/
+*.out
+*.test
+*.prof
+
+# Temporary files
+*.tmp
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+# Downloaded packages and examples output
+/downloads/
+/offline-packages/
+/private-packages/
+/ci-cache/
+/windows-tools/
+/my-project/
+
+# Go workspace
+go.work
+go.work.sum
+
+# macOS
+.DS_Store
+
+# Coverage reports
+coverage.html
+coverage.xml

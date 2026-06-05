@@ -1,0 +1,145 @@
+# CI/CD Integration Example
+# Optimized for continuous integration pipelines
+
+output_dir: ./ci-cache
+timeout: 180s
+
+# CI-friendly settings
+install_defaults:
+  scripts_policy: none  # Safer for CI - no arbitrary script execution
+  allow_scripts: []
+
+# Fast downloads for CI
+downloads:
+  - source: npm
+    name: typescript
+    version: latest
+    chunks: 8          # Fast parallel download
+    resume: false      # Don't resume in CI (fresh each time)
+
+  - source: npm
+    name: eslint
+    version: latest
+    chunks: 8
+
+  - source: npm
+    name: prettier
+    version: latest
+    chunks: 8
+
+# Install dependencies
+installs:
+  # Build dependencies
+  - source: npm
+    name: webpack
+    version: "^5.0.0"
+    frozen_lockfile: true  # Ensure reproducible builds
+    include_dev: true
+
+  # Test dependencies
+  - source: npm
+    name: jest
+    version: latest
+    frozen_lockfile: true
+
+# GitHub Actions Example:
+# 
+# name: Build
+# on: [push, pull_request]
+# 
+# jobs:
+#   build:
+#     runs-on: windows-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#       
+#       - name: Setup Source Fetcher
+#         run: |
+#           # Download source-fetcher binary
+#           curl -L -o sfer.exe https://github.com/YOUR_USERNAME/source-fetcher/releases/latest/download/source-fetcher-windows-amd64.exe
+#           chmod +x sfer.exe
+#       
+#       - name: Download Dependencies
+#         run: ./sfer.exe batch --config ci-cd-integration.yaml --continue-on-error --retries 2
+#       
+#       - name: Build
+#         run: # your build commands
+#       
+#       - name: Test
+#         run: # your test commands
+
+# GitLab CI Example:
+#
+# stages:
+#   - dependencies
+#   - build
+#   - test
+# 
+# variables:
+#   SFER_VERSION: "v1.0.0"
+# 
+# dependencies:
+#   stage: dependencies
+#   script:
+#     - curl -L -o sfer.exe https://github.com/YOUR_USERNAME/source-fetcher/releases/download/${SFER_VERSION}/source-fetcher-windows-amd64.exe
+#     - ./sfer.exe batch --config ci-cd-integration.yaml --continue-on-error --retries 3 --retry-backoff 1s
+#   artifacts:
+#     paths:
+#       - ci-cache/
+#     expire_in: 1 hour
+#   cache:
+#     key: ${CI_COMMIT_REF_SLUG}
+#     paths:
+#       - ci-cache/.source-fetcher/
+# 
+# build:
+#   stage: build
+#   dependencies:
+#     - dependencies
+#   script:
+#     - # your build commands
+
+# Azure Pipelines Example:
+#
+# trigger:
+#   - main
+# 
+# pool:
+#   vmImage: 'windows-latest'
+# 
+# steps:
+# - task: PowerShell@2
+#   displayName: 'Install Source Fetcher'
+#   inputs:
+#     targetType: 'inline'
+#     script: |
+#       Invoke-WebRequest -Uri "https://github.com/YOUR_USERNAME/source-fetcher/releases/latest/download/source-fetcher-windows-amd64.exe" -OutFile "sfer.exe"
+# 
+# - task: PowerShell@2
+#   displayName: 'Download Dependencies'
+#   inputs:
+#     targetType: 'inline'
+#     script: |
+#       ./sfer.exe batch --config ci-cd-integration.yaml --jobs 4 --continue-on-error --retries 2
+# 
+# - task: PowerShell@2
+#   displayName: 'Build'
+#   inputs:
+#     targetType: 'inline'
+#     script: |
+#       # your build commands
+
+# CI Best Practices:
+# 1. Use --continue-on-error to not fail the build on non-critical downloads
+# 2. Use --retries with --retry-backoff for reliability
+# 3. Use --jobs for parallel downloads (faster builds)
+# 4. Use frozen_lockfile for reproducible builds
+# 5. Cache the .source-fetcher directory between builds
+# 6. Set appropriate timeouts
+# 7. Use chunks for faster downloads
+# 8. Don't use resume in CI (always fresh)
+# 9. Use --plan first to verify configuration
+# 10. Monitor download times and optimize
+
+# Usage:
+# sfer batch --config examples/ci-cd-integration.yaml --jobs 4 --continue-on-error --retries 2 --retry-backoff 500ms

@@ -1,0 +1,151 @@
+# Windows Development Tools Setup
+# Complete development environment setup for Windows developers
+
+output_dir: ./windows-tools
+timeout: 300s
+
+downloads:
+  # === Essential Development Tools ===
+  
+  # Git version control
+  - source: choco
+    name: git
+    version: latest
+
+  # Node.js LTS
+  - source: winget
+    name: OpenJS.NodeJS.LTS
+
+  # Python
+  - source: winget
+    name: Python.Python.3.12
+
+  # Visual Studio Code
+  - source: winget
+    name: Microsoft.VisualStudioCode
+
+  # Windows Terminal
+  - source: winget
+    name: Microsoft.WindowsTerminal
+
+  # === Productivity Tools ===
+  
+  # PowerToys
+  - source: winget
+    name: Microsoft.PowerToys
+
+  # 7-Zip
+  - source: choco
+    name: 7zip
+    version: latest
+
+  # Notepad++
+  - source: choco
+    name: notepadplusplus
+    version: latest
+
+  # === Developer Utilities ===
+  
+  # Postman
+  - source: winget
+    name: Postman.Postman
+
+  # Docker Desktop
+  - source: winget
+    name: Docker.DockerDesktop
+
+  # GitHub Desktop
+  - source: winget
+    name: GitHub.GitHubDesktop
+
+  # === Browsers ===
+  
+  # Google Chrome
+  - source: winget
+    name: Google.Chrome
+
+  # Firefox Developer Edition
+  - source: winget
+    name: Mozilla.Firefox.DeveloperEdition
+
+  # === Database Tools ===
+  
+  # DBeaver Community
+  - source: winget
+    name: dbeaver.dbeaver
+
+  # Redis Insight
+  - source: winget
+    name: RedisLabs.RedisInsight
+
+# Installations (npm packages for development)
+installs:
+  # Global CLI tools
+  - source: npm
+    name: typescript
+    version: latest
+
+  - source: npm
+    name: ts-node
+    version: latest
+
+  - source: npm
+    name: nodemon
+    version: latest
+
+  - source: npm
+    name: pm2
+    version: latest
+
+# Usage Instructions:
+#
+# 1. Download all tools:
+#    sfer batch --config examples/windows-tools.yaml --jobs 3 --continue-on-error
+#
+# 2. Install the downloaded tools:
+#    - Choco packages: Requires Chocolatey installed
+#      sfer install --source choco --name git
+#    
+#    - Winget packages: Built into Windows 10/11
+#      sfer install --source winget --name Microsoft.VisualStudioCode
+#
+# 3. For automated installation of all:
+#    Note: Requires administrator privileges for some tools
+#    
+#    Run in elevated PowerShell:
+#    foreach ($tool in @('git','7zip','notepadplusplus')) {
+#        sfer install --source choco --name $tool
+#    }
+#
+# Customization:
+# - Comment out tools you don't need
+# - Add your preferred tools
+# - Adjust versions as needed
+# - Group by project type (web, desktop, etc.)
+
+# Alternative: Selective Installation
+# If you only want specific tools, create a custom YAML:
+#
+# downloads:
+#   - source: winget
+#     name: Microsoft.VisualStudioCode
+#   - source: choco
+#     name: git
+#   - source: winget
+#     name: Microsoft.WindowsTerminal
+
+# Post-Installation:
+# 1. Configure Git:
+#    git config --global user.name "Your Name"
+#    git config --global user.email "your.email@example.com"
+#
+# 2. Install VS Code extensions
+# 3. Configure PowerShell profile
+# 4. Set up development directories
+# 5. Configure environment variables
+
+# Notes:
+# - Some installations require admin privileges
+# - Some tools need restart to take effect
+# - Check system requirements before installing
+# - Total download size: ~5-10 GB depending on selections

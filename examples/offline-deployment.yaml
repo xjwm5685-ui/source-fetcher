@@ -1,0 +1,74 @@
+# Offline Deployment Example
+# Download all packages with internet access, then deploy offline
+
+# Step 1: Run this on a machine with internet access
+# This will download all packages to ./offline-packages
+
+output_dir: ./offline-packages
+timeout: 300s
+
+# Download everything you need
+downloads:
+  # Frontend framework
+  - source: npm
+    name: react
+    version: "^18.2.0"
+    chunks: 8
+    resume: true
+
+  - source: npm
+    name: react-dom
+    version: "^18.2.0"
+    chunks: 8
+    resume: true
+
+  # Build tools
+  - source: npm
+    name: vite
+    version: latest
+    chunks: 8
+    resume: true
+
+  # Node.js installer
+  - source: url
+    url: https://nodejs.org/dist/v20.11.0/node-v20.11.0-x64.msi
+
+  # Git for Windows
+  - source: choco
+    name: git
+    version: latest
+
+  # VS Code
+  - source: winget
+    name: Microsoft.VisualStudioCode
+
+  # PowerToys
+  - source: winget
+    name: Microsoft.PowerToys
+
+# Step 2: Transfer ./offline-packages to offline machine
+
+# Step 3: On offline machine, install from cache
+# Note: For npm packages, you'll need to run install commands
+# pointing to the local tarballs
+
+# For software installers (choco/winget), run:
+# sfer install --source winget --name Microsoft.VisualStudioCode --output ./offline-packages
+# (This will use the already-downloaded installer)
+
+# Usage:
+# === On online machine ===
+# sfer batch --config examples/offline-deployment.yaml
+#
+# === Transfer files ===
+# Copy ./offline-packages directory to USB drive or network share
+#
+# === On offline machine ===
+# Copy ./offline-packages to target machine
+# Install packages using the cached files
+#
+# Tips:
+# - Use --chunks 8 for faster downloads on good connections
+# - Use --resume to handle interrupted downloads
+# - Verify checksums after transfer
+# - Keep the .source-fetcher directory intact

@@ -1,0 +1,2323 @@
+package main
+
+import (
+	"context"
+	"errors"
+	"flag"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+)
+
+const (
+	tuiPageSearch = iota
+	tuiPageQueue
+	tuiPageMirrors
+	tuiPageBatch
+)
+
+const (
+	tuiSearchFocusSource = iota
+	tuiSearchFocusQuery
+	tuiSearchFocusOutput
+	tuiSearchFocusMirror
+	tuiSearchFocusLimit
+	tuiSearchFocusAuth
+	tuiSearchFocusArch
+	tuiSearchFocusInstaller
+	tuiSearchFocusResume
+	tuiSearchFocusChunks
+	tuiSearchFocusResults
+	tuiSearchFocusCount
+)
+
+const (
+	tuiBatchFocusConfig = iota
+	tuiBatchFocusTasks
+	tuiBatchFocusCount
+)
+
+const tuiRefreshInterval = 200 * time.Millisecond
+
+var (
+	// 🎨 Modern Color Palette - Inspired by GitHub Dark & VS Code
+	colorPrimary     = lipgloss.Color("#58a6ff")  // Bright Blue
+	colorSuccess     = lipgloss.Color("#3fb950")  // Green
+	colorWarning     = lipgloss.Color("#d29922")  // Orange
+	colorDanger      = lipgloss.Color("#f85149")  // Red
+	colorMuted       = lipgloss.Color("#8b949e")  // Gray
+	colorText        = lipgloss.Color("#c9d1d9")  // Light Gray
+	colorBg          = lipgloss.Color("#0d1117")  // Dark Background
+	colorBgSubtle    = lipgloss.Color("#161b22")  // Subtle Background
+	colorBorder      = lipgloss.Color("#30363d")  // Border
+	colorBorderBright= lipgloss.Color("#58a6ff")  // Bright Border
+	colorAccent      = lipgloss.Color("#a371f7")  // Purple Accent
+	colorHighlight   = lipgloss.Color("#ffd33d")  // Yellow Highlight
+
+	// 📝 Typography Styles
+	tuiTitleStyle        = lipgloss.NewStyle().Bold(true).Foreground(colorText).MarginBottom(1)
+	tuiSectionTitleStyle = lipgloss.NewStyle().Bold(true).Foreground(colorPrimary).Underline(true)
+	tuiMutedStyle        = lipgloss.NewStyle().Foreground(colorMuted).Italic(true)
+	tuiHelpStyle         = lipgloss.NewStyle().Foreground(colorMuted).Italic(true)
+	tuiErrorStyle        = lipgloss.NewStyle().Foreground(colorDanger).Bold(true)
+	tuiOKStyle           = lipgloss.NewStyle().Foreground(colorSuccess).Bold(true)
+	tuiWarningStyle      = lipgloss.NewStyle().Foreground(colorWarning).Bold(true)
+	
+	// 🎯 Interactive Elements
+	tuiSelectionStyle    = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(colorText).
+				Background(colorPrimary).
+				Padding(0, 1).
+				MarginRight(1)
+	
+	// 📑 Tab Styles
+	tuiActiveTabStyle    = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(colorText).
+				Background(colorPrimary).
+				Padding(0, 3).
+				MarginRight(1).
+				BorderStyle(lipgloss.RoundedBorder()).
+				BorderForeground(colorPrimary).
+				BorderBottom(false)
+	
+	tuiInactiveTabStyle  = lipgloss.NewStyle().
+				Foreground(colorMuted).
+				Background(colorBgSubtle).
+				Padding(0, 3).
+				MarginRight(1).
+				BorderStyle(lipgloss.RoundedBorder()).
+				BorderForeground(colorBorder).
+				BorderBottom(false)
+	
+	// 🎪 Header Styles
+	tuiHeaderBarStyle    = lipgloss.NewStyle().
+				Padding(1, 2).
+				Background(colorBgSubtle).
+				Foreground(colorText).
+				BorderStyle(lipgloss.RoundedBorder()).
+				BorderForeground(colorBorderBright).
+				MarginBottom(1)
+	
+	tuiHeaderTitleStyle  = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(colorPrimary)
+	
+	tuiHeaderMetaStyle   = lipgloss.NewStyle().
+				Foreground(colorMuted).
+				Italic(true)
+	
+	// 🏷️ Badge Styles
+	tuiBadgeStyle        = lipgloss.NewStyle().
+				Foreground(colorText).
+				Background(colorPrimary).
+				Padding(0, 2).
+				Bold(true).
+				BorderStyle(lipgloss.RoundedBorder()).
+				BorderForeground(colorPrimary)
+	
+	tuiSubtleBadgeStyle  = lipgloss.NewStyle().
+				Foreground(colorMuted).
+				Background(colorBgSubtle).
+				Padding(0, 2).
+				BorderStyle(lipgloss.RoundedBorder()).
+				BorderForeground(colorBorder)
+	
+	// 📋 Form Styles
+	tuiFieldLabelStyle   = lipgloss.NewStyle().
+				Foreground(colorPrimary).
+				Bold(true).
+				Width(12).
+				Align(lipgloss.Right).
+				MarginRight(1)
+	
+	// 📊 Status Bar Styles
+	tuiStatusBarBoxStyle = lipgloss.NewStyle().
+				Padding(1, 2).
+				Background(colorBgSubtle).
+				BorderStyle(lipgloss.RoundedBorder()).
+				BorderForeground(colorBorder).
+				MarginTop(1)
+)
+
+type tuiSearchFinishedMsg struct {
+	results []SearchResult
+	err     error
+}
+
+type tuiResolveFinishedMsg struct {
+	plan DownloadPlan
+	err  error
+}
+
+type tuiMirrorFinishedMsg struct {
+	results []MirrorResult
+	err     error
+}
+
+type tuiBatchLoadedMsg struct {
+	cfg     BatchConfig
+	tasks   []tuiBatchTask
+	timeout time.Duration
+	err     error
+}
+
+type tuiQueueTaskFinishedMsg struct {
+	taskID int
+	label  string
+	err    error
+}
+
+type tuiTickMsg time.Time
+
+type tuiQueueTask struct {
+	ID              int
+	Action          string
+	Label           string
+	Origin          string
+	Timeout         time.Duration
+	Request         DownloadRequest
+	Install         InstallRequest
+	Uninstall       UninstallRequest
+	Repair          RepairRequest
+	Status          string
+	Plan            DownloadPlan
+	InstallPlan     InstallPlan
+	Result          DownloadResult
+	InstallResult   InstallResult
+	UninstallResult UninstallResult
+	RepairResult    RepairResult
+	Progress        DownloadProgress
+	Error           string
+	Enqueued        time.Time
+	UpdatedAt       time.Time
+}
+
+type tuiQueueWork struct {
+	ID        int
+	Action    string
+	Label     string
+	Origin    string
+	Timeout   time.Duration
+	Request   DownloadRequest
+	Install   InstallRequest
+	Uninstall UninstallRequest
+	Repair    RepairRequest
+}
+
+type tuiQueueItem struct {
+	Action    string
+	Request   DownloadRequest
+	Install   InstallRequest
+	Uninstall UninstallRequest
+	Repair    RepairRequest
+	Origin    string
+	Timeout   time.Duration
+}
+
+type tuiBatchTask struct {
+	Label  string
+	Detail string
+	Item   tuiQueueItem
+}
+
+type tuiQueueState struct {
+	mu      sync.Mutex
+	nextID  int
+	running bool
+	tasks   []*tuiQueueTask
+}
+
+type tuiModel struct {
+	client  *http.Client
+	timeout time.Duration
+
+	width  int
+	height int
+	page   int
+	busy   bool
+	status string
+
+	sourceOptions []string
+
+	searchFocus    int
+	searchSource   int
+	configPath     string
+	configOptional bool
+	queryInput     textinput.Model
+	outputInput    textinput.Model
+	mirrorInput    textinput.Model
+	limitInput     textinput.Model
+	authInput      textinput.Model
+	archInput      textinput.Model
+	installerInput textinput.Model
+	resumeInput    textinput.Model
+	chunksInput    textinput.Model
+	searchResults  []SearchResult
+	searchSelected map[int]bool
+	searchCursor   int
+	searchDetail   string
+
+	queue       *tuiQueueState
+	queueTasks  []tuiQueueTask
+	queueCursor int
+
+	mirrorSource  int
+	mirrorResults []MirrorResult
+	mirrorCursor  int
+	mirrorDetail  string
+
+	batchFocus       int
+	batchConfigInput textinput.Model
+	batchConfig      BatchConfig
+	batchTimeout     time.Duration
+	batchTasks       []tuiBatchTask
+	batchSelected    map[int]bool
+	batchCursor      int
+	batchDetail      string
+}
+
+func runTUI(args []string) error {
+	fs := flag.NewFlagSet("tui", flag.ContinueOnError)
+	fs.SetOutput(os.Stdout)
+
+	source := fs.String("source", "all", "initial source: npm, choco, winget, all")
+	query := fs.String("query", "", "initial search query")
+	mirror := fs.String("mirror", "", "initial mirror name or base url override")
+	limit := fs.Int("limit", 10, "max results per source")
+	outputDir := fs.String("output", ".", "download output directory")
+	configPath := fs.String("config", defaultRuntimeConfigPath, "config path for auth profiles and batch tasks")
+	authProfile := fs.String("auth-profile", "", "auth profile name from config")
+	arch := fs.String("arch", "", "preferred winget installer architecture")
+	installerIndex := fs.Int("installer-index", -1, "preferred winget installer index")
+	resume := fs.Bool("resume", false, "resume an existing .part file when supported by the server")
+	chunks := fs.Int("chunks", 1, "number of parallel download chunks when the server supports ranges")
+	timeout := fs.Duration("timeout", 20*time.Second, "request timeout")
+
+	helpShown, err := parseCommandFlags(fs, args)
+	if err != nil {
+		return err
+	}
+	if helpShown {
+		return nil
+	}
+	if *limit <= 0 {
+		return errors.New("--limit must be greater than 0")
+	}
+	if *chunks <= 0 {
+		return errors.New("--chunks must be greater than 0")
+	}
+
+	absOutput, err := filepath.Abs(*outputDir)
+	if err != nil {
+		return fmt.Errorf("resolve output dir: %w", err)
+	}
+
+	model := newTUIModel(
+		newHTTPClient(*timeout),
+		*timeout,
+		*source,
+		*query,
+		absOutput,
+		*mirror,
+		*limit,
+		*authProfile,
+		*arch,
+		*installerIndex,
+		*resume,
+		*chunks,
+		*configPath,
+		shouldAllowMissingRuntimeConfig(fs, *configPath),
+	)
+	_, err = tea.NewProgram(model, tea.WithAltScreen()).Run()
+	return err
+}
+
+func newTUIModel(client *http.Client, timeout time.Duration, source string, query string, output string, mirror string, limit int, authProfile string, arch string, installerIndex int, resume bool, chunks int, configPath string, configOptional bool) tuiModel {
+	queryInput := textinput.New()
+	queryInput.Placeholder = "Search packages"
+	queryInput.Prompt = ""
+	queryInput.SetValue(strings.TrimSpace(query))
+	queryInput.CharLimit = 200
+
+	outputInput := textinput.New()
+	outputInput.Placeholder = "Output directory"
+	outputInput.Prompt = ""
+	outputInput.SetValue(strings.TrimSpace(output))
+	outputInput.CharLimit = 260
+
+	mirrorInput := textinput.New()
+	mirrorInput.Placeholder = "Mirror override (optional)"
+	mirrorInput.Prompt = ""
+	mirrorInput.SetValue(strings.TrimSpace(mirror))
+	mirrorInput.CharLimit = 200
+
+	limitInput := textinput.New()
+	limitInput.Placeholder = "10"
+	limitInput.Prompt = ""
+	limitInput.SetValue(strconv.Itoa(limit))
+	limitInput.CharLimit = 4
+
+	authInput := textinput.New()
+	authInput.Placeholder = "Auth profile (optional)"
+	authInput.Prompt = ""
+	authInput.SetValue(strings.TrimSpace(authProfile))
+	authInput.CharLimit = 64
+
+	archInput := textinput.New()
+	archInput.Placeholder = "x64"
+	archInput.Prompt = ""
+	archInput.SetValue(strings.TrimSpace(arch))
+	archInput.CharLimit = 20
+
+	installerInput := textinput.New()
+	installerInput.Placeholder = "auto"
+	installerInput.Prompt = ""
+	if installerIndex >= 0 {
+		installerInput.SetValue(strconv.Itoa(installerIndex))
+	}
+	installerInput.CharLimit = 6
+
+	resumeInput := textinput.New()
+	resumeInput.Placeholder = "false"
+	resumeInput.Prompt = ""
+	resumeInput.SetValue(strconv.FormatBool(resume))
+	resumeInput.CharLimit = 5
+
+	chunksInput := textinput.New()
+	chunksInput.Placeholder = "1"
+	chunksInput.Prompt = ""
+	chunksInput.SetValue(strconv.Itoa(maxInt(1, chunks)))
+	chunksInput.CharLimit = 4
+
+	batchConfigInput := textinput.New()
+	batchConfigInput.Placeholder = "source-fetcher.yaml"
+	batchConfigInput.Prompt = ""
+	batchConfigInput.SetValue(strings.TrimSpace(configPath))
+	batchConfigInput.CharLimit = 260
+
+	model := tuiModel{
+		client:           client,
+		timeout:          timeout,
+		page:             tuiPageSearch,
+		status:           "先在 Search 页输入关键词，再按 Enter 搜索。",
+		sourceOptions:    []string{"all", "npm", "choco", "winget"},
+		searchFocus:      tuiSearchFocusQuery,
+		searchSource:     sourceIndexFor(source, []string{"all", "npm", "choco", "winget"}),
+		configPath:       strings.TrimSpace(configPath),
+		configOptional:   configOptional,
+		queryInput:       queryInput,
+		outputInput:      outputInput,
+		mirrorInput:      mirrorInput,
+		limitInput:       limitInput,
+		authInput:        authInput,
+		archInput:        archInput,
+		installerInput:   installerInput,
+		resumeInput:      resumeInput,
+		chunksInput:      chunksInput,
+		searchSelected:   map[int]bool{},
+		searchDetail:     "Search Details\n\n先输入关键词并按 Enter 搜索。拿到结果后，d 下载入队，i 安装入队。",
+		queue:            &tuiQueueState{},
+		mirrorSource:     sourceIndexFor(source, []string{"all", "npm", "choco", "winget"}),
+		mirrorDetail:     "Mirror Details\n\n先选 source，再按 Enter 或 r 开始测速。",
+		batchFocus:       tuiBatchFocusConfig,
+		batchConfigInput: batchConfigInput,
+		batchTimeout:     timeout,
+		batchSelected:    map[int]bool{},
+		batchDetail:      "Batch Details\n\n先输入配置路径并按 Enter 或 l 加载 YAML。",
+	}
+	if strings.TrimSpace(query) != "" {
+		model.busy = true
+		model.status = "正在搜索..."
+	}
+	model.setSearchFocus(model.searchFocus)
+	model.setBatchFocus(model.batchFocus)
+	return model
+}
+
+func (m tuiModel) Init() tea.Cmd {
+	cmds := []tea.Cmd{tuiTickCmd()}
+	if strings.TrimSpace(m.queryInput.Value()) != "" {
+		cmds = append(cmds, m.searchCmd())
+	}
+	return tea.Batch(cmds...)
+}
+
+func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tuiTickMsg:
+		m.refreshQueueSnapshot()
+		cmds := []tea.Cmd{tuiTickCmd()}
+		if work, ok := m.queue.startNext(); ok {
+			cmds = append(cmds, m.queueTaskCmd(work))
+		}
+		return m, tea.Batch(cmds...)
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		m.resizeInputs()
+		return m, nil
+	case tuiSearchFinishedMsg:
+		m.busy = false
+		if msg.err != nil {
+			m.status = "搜索失败"
+			m.searchResults = nil
+			m.searchSelected = map[int]bool{}
+			m.searchCursor = 0
+			m.searchDetail = msg.err.Error()
+			return m, nil
+		}
+		m.searchResults = msg.results
+		m.searchSelected = map[int]bool{}
+		m.searchCursor = 0
+		if len(msg.results) == 0 {
+			m.status = "没有找到结果"
+			m.searchDetail = "No results."
+			m.setSearchFocus(tuiSearchFocusQuery)
+			return m, nil
+		}
+		m.status = fmt.Sprintf("搜索完成，共 %d 条结果", len(msg.results))
+		m.setSearchFocus(tuiSearchFocusResults)
+		m.updateSearchDetailFromSelection()
+		return m, nil
+	case tuiResolveFinishedMsg:
+		m.busy = false
+		if msg.err != nil {
+			m.status = "解析失败"
+			m.searchDetail = msg.err.Error()
+			return m, nil
+		}
+		m.status = "解析完成"
+		m.searchDetail = formatDownloadPlanText(msg.plan)
+		return m, nil
+	case tuiMirrorFinishedMsg:
+		m.busy = false
+		if msg.err != nil {
+			m.status = "测速失败"
+			m.mirrorResults = nil
+			m.mirrorCursor = 0
+			m.mirrorDetail = msg.err.Error()
+			return m, nil
+		}
+		m.status = fmt.Sprintf("镜像测速完成，共 %d 项", len(msg.results))
+		m.mirrorResults = msg.results
+		m.mirrorCursor = 0
+		m.updateMirrorDetail()
+		return m, nil
+	case tuiBatchLoadedMsg:
+		m.busy = false
+		if msg.err != nil {
+			m.status = "加载批量配置失败"
+			m.batchTasks = nil
+			m.batchConfig = BatchConfig{}
+			m.batchTimeout = m.timeout
+			m.batchSelected = map[int]bool{}
+			m.batchCursor = 0
+			m.batchDetail = msg.err.Error()
+			return m, nil
+		}
+		m.batchConfig = msg.cfg
+		m.batchTimeout = msg.timeout
+		m.batchTasks = msg.tasks
+		m.batchSelected = map[int]bool{}
+		m.batchCursor = 0
+		m.status = fmt.Sprintf("批量配置已加载，共 %d 个任务，超时 %s", len(msg.tasks), msg.timeout)
+		m.setBatchFocus(tuiBatchFocusTasks)
+		m.updateBatchDetail()
+		return m, nil
+	case tuiQueueTaskFinishedMsg:
+		m.refreshQueueSnapshot()
+		if msg.err != nil {
+			m.status = fmt.Sprintf("任务失败: %s", msg.label)
+		} else {
+			m.status = fmt.Sprintf("任务完成: %s", msg.label)
+		}
+		return m, nil
+	case tea.KeyMsg:
+		return m.updateKey(msg)
+	}
+
+	return m.updateFocusedInput(msg)
+}
+
+func (m tuiModel) updateKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+c", "q":
+		if m.queue.hasUnfinished() {
+			m.status = "仍有任务未结束，清空或等待完成后再退出"
+			return m, nil
+		}
+		return m, tea.Quit
+	case "1":
+		m.page = tuiPageSearch
+		return m, nil
+	case "2":
+		m.page = tuiPageQueue
+		return m, nil
+	case "3":
+		m.page = tuiPageMirrors
+		return m, nil
+	case "4":
+		m.page = tuiPageBatch
+		return m, nil
+	}
+
+	switch m.page {
+	case tuiPageSearch:
+		return m.updateSearchKey(msg)
+	case tuiPageQueue:
+		return m.updateQueueKey(msg)
+	case tuiPageMirrors:
+		return m.updateMirrorKey(msg)
+	case tuiPageBatch:
+		return m.updateBatchKey(msg)
+	default:
+		return m, nil
+	}
+}
+
+func (m tuiModel) updateSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "tab":
+		m.cycleSearchFocus(1)
+		return m, nil
+	case "shift+tab":
+		m.cycleSearchFocus(-1)
+		return m, nil
+	case "r":
+		return m.startSearch()
+	case "enter":
+		if m.searchFocus == tuiSearchFocusResults {
+			if len(m.searchResults) == 0 {
+				return m, nil
+			}
+			if m.busy {
+				m.status = "前台操作进行中，请稍后"
+				return m, nil
+			}
+			m.busy = true
+			m.status = "正在解析选中结果..."
+			return m, m.resolveSelectedCmd()
+		}
+		return m.startSearch()
+	case "up", "k":
+		if m.searchFocus == tuiSearchFocusResults {
+			m.moveSearchCursor(-1)
+			return m, nil
+		}
+		if m.searchFocus == tuiSearchFocusSource {
+			m.moveSearchSource(-1)
+			return m, nil
+		}
+	case "down", "j":
+		if m.searchFocus == tuiSearchFocusResults {
+			m.moveSearchCursor(1)
+			return m, nil
+		}
+		if m.searchFocus == tuiSearchFocusSource {
+			m.moveSearchSource(1)
+			return m, nil
+		}
+	case "left", "h":
+		if m.searchFocus == tuiSearchFocusSource {
+			m.moveSearchSource(-1)
+			return m, nil
+		}
+	case "right", "l":
+		if m.searchFocus == tuiSearchFocusSource {
+			m.moveSearchSource(1)
+			return m, nil
+		}
+	case " ":
+		if m.searchFocus == tuiSearchFocusResults {
+			m.toggleSearchSelection(m.searchCursor)
+			return m, nil
+		}
+	case "a":
+		if m.searchFocus == tuiSearchFocusResults {
+			m.selectAllSearchResults()
+			return m, nil
+		}
+	case "c":
+		if m.searchFocus == tuiSearchFocusResults {
+			m.searchSelected = map[int]bool{}
+			m.status = "已清空搜索结果选择"
+			m.updateSearchDetailFromSelection()
+			return m, nil
+		}
+	case "d":
+		if m.searchFocus == tuiSearchFocusResults {
+			requests, err := m.selectedSearchRequests()
+			if err != nil {
+				m.status = err.Error()
+				return m, nil
+			}
+			count := m.queue.enqueue(requests)
+			m.refreshQueueSnapshot()
+			m.status = fmt.Sprintf("已加入队列 %d 个任务", count)
+			return m, nil
+		}
+	case "i":
+		if m.searchFocus == tuiSearchFocusResults {
+			items, err := m.selectedSearchInstallRequests()
+			if err != nil {
+				m.status = err.Error()
+				return m, nil
+			}
+			count := m.queue.enqueue(items)
+			m.refreshQueueSnapshot()
+			m.status = fmt.Sprintf("已加入队列 %d 个安装任务", count)
+			return m, nil
+		}
+	}
+	return m.updateFocusedInput(msg)
+}
+
+func (m tuiModel) updateQueueKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "up", "k":
+		if len(m.queueTasks) > 0 {
+			m.queueCursor = maxInt(0, m.queueCursor-1)
+		}
+		return m, nil
+	case "down", "j":
+		if len(m.queueTasks) > 0 {
+			m.queueCursor = minInt(len(m.queueTasks)-1, m.queueCursor+1)
+		}
+		return m, nil
+	case "x":
+		removed := m.queue.clearFinished()
+		m.refreshQueueSnapshot()
+		m.status = fmt.Sprintf("已清理 %d 个已结束任务", removed)
+		return m, nil
+	case "u":
+		outputDir := strings.TrimSpace(m.outputInput.Value())
+		if outputDir == "" {
+			outputDir = "."
+		}
+		m.queue.enqueue([]tuiQueueItem{{Action: "uninstall", Uninstall: UninstallRequest{OutputDir: outputDir}, Origin: "queue"}})
+		m.refreshQueueSnapshot()
+		m.status = "已加入卸载任务"
+		return m, nil
+	case "p":
+		outputDir := strings.TrimSpace(m.outputInput.Value())
+		if outputDir == "" {
+			outputDir = "."
+		}
+		m.queue.enqueue([]tuiQueueItem{{Action: "repair", Repair: RepairRequest{OutputDir: outputDir}, Origin: "queue"}})
+		m.refreshQueueSnapshot()
+		m.status = "已加入修复任务"
+		return m, nil
+	}
+	return m, nil
+}
+
+func (m tuiModel) updateMirrorKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "enter", "r":
+		if m.busy {
+			m.status = "前台操作进行中，请稍后"
+			return m, nil
+		}
+		m.busy = true
+		m.status = "正在测速镜像..."
+		return m, m.mirrorCmd()
+	case "up", "k", "left", "h":
+		if len(m.mirrorResults) > 0 && (msg.String() == "up" || msg.String() == "k") {
+			m.mirrorCursor = maxInt(0, m.mirrorCursor-1)
+			m.updateMirrorDetail()
+			return m, nil
+		}
+		m.mirrorSource = (m.mirrorSource - 1 + len(m.sourceOptions)) % len(m.sourceOptions)
+		return m, nil
+	case "down", "j", "right", "l":
+		if len(m.mirrorResults) > 0 && (msg.String() == "down" || msg.String() == "j") {
+			m.mirrorCursor = minInt(len(m.mirrorResults)-1, m.mirrorCursor+1)
+			m.updateMirrorDetail()
+			return m, nil
+		}
+		m.mirrorSource = (m.mirrorSource + 1) % len(m.sourceOptions)
+		return m, nil
+	}
+	return m, nil
+}
+
+func (m tuiModel) updateBatchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "tab":
+		m.cycleBatchFocus(1)
+		return m, nil
+	case "shift+tab":
+		m.cycleBatchFocus(-1)
+		return m, nil
+	case "enter":
+		if m.batchFocus == tuiBatchFocusConfig {
+			if m.busy {
+				m.status = "前台操作进行中，请稍后"
+				return m, nil
+			}
+			m.busy = true
+			m.status = "正在加载批量配置..."
+			return m, m.batchLoadCmd()
+		}
+		m.updateBatchDetail()
+		return m, nil
+	case "l":
+		if m.busy {
+			m.status = "前台操作进行中，请稍后"
+			return m, nil
+		}
+		m.busy = true
+		m.status = "正在加载批量配置..."
+		return m, m.batchLoadCmd()
+	case "up", "k":
+		if m.batchFocus == tuiBatchFocusTasks && len(m.batchTasks) > 0 {
+			m.batchCursor = maxInt(0, m.batchCursor-1)
+			m.updateBatchDetail()
+		}
+		return m, nil
+	case "down", "j":
+		if m.batchFocus == tuiBatchFocusTasks && len(m.batchTasks) > 0 {
+			m.batchCursor = minInt(len(m.batchTasks)-1, m.batchCursor+1)
+			m.updateBatchDetail()
+		}
+		return m, nil
+	case " ":
+		if m.batchFocus == tuiBatchFocusTasks && len(m.batchTasks) > 0 {
+			if m.batchSelected[m.batchCursor] {
+				delete(m.batchSelected, m.batchCursor)
+			} else {
+				m.batchSelected[m.batchCursor] = true
+			}
+			m.updateBatchDetail()
+		}
+		return m, nil
+	case "a":
+		if m.batchFocus == tuiBatchFocusTasks {
+			for index := range m.batchTasks {
+				m.batchSelected[index] = true
+			}
+			m.status = fmt.Sprintf("已选中 %d 个批量任务", len(m.batchTasks))
+			m.updateBatchDetail()
+		}
+		return m, nil
+	case "c":
+		if m.batchFocus == tuiBatchFocusTasks {
+			m.batchSelected = map[int]bool{}
+			m.status = "已清空批量任务选择"
+			m.updateBatchDetail()
+		}
+		return m, nil
+	case "e":
+		if m.batchFocus == tuiBatchFocusTasks {
+			requests, err := m.selectedBatchRequests()
+			if err != nil {
+				m.status = err.Error()
+				return m, nil
+			}
+			count := m.queue.enqueue(requests)
+			m.refreshQueueSnapshot()
+			m.status = fmt.Sprintf("已从批量页加入队列 %d 个任务", count)
+		}
+		return m, nil
+	}
+	return m.updateFocusedInput(msg)
+}
+
+func (m tuiModel) updateFocusedInput(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch m.page {
+	case tuiPageSearch:
+		switch m.searchFocus {
+		case tuiSearchFocusQuery:
+			var cmd tea.Cmd
+			m.queryInput, cmd = m.queryInput.Update(msg)
+			return m, cmd
+		case tuiSearchFocusOutput:
+			var cmd tea.Cmd
+			m.outputInput, cmd = m.outputInput.Update(msg)
+			return m, cmd
+		case tuiSearchFocusMirror:
+			var cmd tea.Cmd
+			m.mirrorInput, cmd = m.mirrorInput.Update(msg)
+			return m, cmd
+		case tuiSearchFocusLimit:
+			var cmd tea.Cmd
+			m.limitInput, cmd = m.limitInput.Update(msg)
+			return m, cmd
+		case tuiSearchFocusAuth:
+			var cmd tea.Cmd
+			m.authInput, cmd = m.authInput.Update(msg)
+			return m, cmd
+		case tuiSearchFocusArch:
+			var cmd tea.Cmd
+			m.archInput, cmd = m.archInput.Update(msg)
+			return m, cmd
+		case tuiSearchFocusInstaller:
+			var cmd tea.Cmd
+			m.installerInput, cmd = m.installerInput.Update(msg)
+			return m, cmd
+		case tuiSearchFocusResume:
+			var cmd tea.Cmd
+			m.resumeInput, cmd = m.resumeInput.Update(msg)
+			return m, cmd
+		case tuiSearchFocusChunks:
+			var cmd tea.Cmd
+			m.chunksInput, cmd = m.chunksInput.Update(msg)
+			return m, cmd
+		}
+	case tuiPageBatch:
+		if m.batchFocus == tuiBatchFocusConfig {
+			var cmd tea.Cmd
+			m.batchConfigInput, cmd = m.batchConfigInput.Update(msg)
+			return m, cmd
+		}
+	}
+	return m, nil
+}
+
+func (m tuiModel) View() string {
+	if m.width == 0 || m.height == 0 {
+		return "Loading..."
+	}
+
+	sections := []string{
+		m.renderHeaderBar(),
+		m.renderTabs(),
+		m.renderBody(),
+		m.renderStatusBar(),
+	}
+
+	return lipgloss.NewStyle().Padding(0, 1).Width(maxInt(40, m.width-2)).Render(strings.Join(sections, "\n"))
+}
+
+func (m tuiModel) renderHeaderBar() string {
+	left := lipgloss.JoinVertical(lipgloss.Left,
+		tuiHeaderTitleStyle.Render("Source Fetcher"),
+		tuiHeaderMetaStyle.Render("A terminal workspace for search, download, install, repair, and batch jobs"),
+	)
+	right := strings.Join([]string{
+		tuiBadgeStyle.Render(strings.ToUpper(m.currentPageLabel())),
+		tuiSubtleBadgeStyle.Render(fmt.Sprintf("Queue %d", len(m.queueTasks))),
+	}, " ")
+	space := maxInt(1, m.width-lipgloss.Width(left)-lipgloss.Width(right)-10)
+	row := lipgloss.JoinHorizontal(lipgloss.Top, left, lipgloss.NewStyle().Width(space).Render(""), right)
+	return tuiHeaderBarStyle.Width(maxInt(36, m.width-4)).Render(row)
+}
+
+func (m tuiModel) renderBody() string {
+	if m.width < 120 {
+		return strings.Join([]string{
+			m.renderCurrentPage(),
+			m.renderDetailPanel(),
+		}, "\n")
+	}
+	leftWidth := maxInt(60, (m.width-6)*2/3)
+	rightWidth := maxInt(34, m.width-5-leftWidth)
+	leftModel := m
+	leftModel.width = leftWidth
+	rightModel := m
+	rightModel.width = rightWidth
+	return lipgloss.JoinHorizontal(lipgloss.Top, leftModel.renderCurrentPage(), " ", rightModel.renderDetailPanel())
+}
+
+func (m *tuiModel) renderTabs() string {
+	tabs := []string{
+		m.renderTab(tuiPageSearch, "1 Search"),
+		m.renderTab(tuiPageQueue, fmt.Sprintf("2 Queue (%d)", len(m.queueTasks))),
+		m.renderTab(tuiPageMirrors, "3 Mirrors"),
+		m.renderTab(tuiPageBatch, "4 Batch"),
+	}
+	return strings.Join(tabs, " ")
+}
+
+func (m tuiModel) currentPageLabel() string {
+	switch m.page {
+	case tuiPageSearch:
+		return "Search"
+	case tuiPageQueue:
+		return "Queue"
+	case tuiPageMirrors:
+		return "Mirrors"
+	case tuiPageBatch:
+		return "Batch"
+	default:
+		return "Workspace"
+	}
+}
+
+func (m *tuiModel) renderTab(page int, label string) string {
+	if m.page == page {
+		return tuiActiveTabStyle.Render(label)
+	}
+	return tuiInactiveTabStyle.Render(label)
+}
+
+func (m tuiModel) renderCurrentPage() string {
+	switch m.page {
+	case tuiPageSearch:
+		return m.renderPageShell("Search", "先配置搜索条件，再从结果里选择下载或安装。", m.renderSearchPage())
+	case tuiPageQueue:
+		return m.renderPageShell("Queue", "这里是执行中心，所有下载、安装、卸载、修复都会按顺序运行。", m.renderQueuePage())
+	case tuiPageMirrors:
+		return m.renderPageShell("Mirrors", "先测试源速度，再决定后续搜索和下载走哪个镜像。", m.renderMirrorsPage())
+	case tuiPageBatch:
+		return m.renderPageShell("Batch", "先加载 YAML，再选择需要入队的批量任务。", m.renderBatchPage())
+	default:
+		return ""
+	}
+}
+
+func (m tuiModel) renderPageShell(title string, summary string, content string) string {
+	header := panelStyle(false, m.width-4).Render(strings.Join([]string{
+		tuiSectionTitleStyle.Render(title),
+		tuiMutedStyle.Render(summary),
+		tuiHelpStyle.Render("Hint: start from the title and the bottom help line, then work step by step."),
+	}, "\n"))
+	return strings.Join([]string{header, content}, "\n")
+}
+
+func (m tuiModel) renderSearchPage() string {
+	form := []string{
+		tuiTitleStyle.Render("Step 1 设定查询"),
+		tuiMutedStyle.Render("基础项优先: Source / Query / Output"),
+		m.renderSourceLine(m.searchFocus == tuiSearchFocusSource, m.searchSource),
+		m.renderInputLine("Query ", m.queryInput.View(), m.searchFocus == tuiSearchFocusQuery),
+		m.renderInputLine("Output", m.outputInput.View(), m.searchFocus == tuiSearchFocusOutput),
+		"",
+		tuiMutedStyle.Render("高级项按需改: Mirror / Auth / Arch / Installer / Resume / Chunks"),
+		m.renderInputLine("Mirror", m.mirrorInput.View(), m.searchFocus == tuiSearchFocusMirror),
+		m.renderInputLine("Limit ", m.limitInput.View(), m.searchFocus == tuiSearchFocusLimit),
+		m.renderInputLine("Auth", m.authInput.View(), m.searchFocus == tuiSearchFocusAuth),
+		m.renderInputLine("Arch", m.archInput.View(), m.searchFocus == tuiSearchFocusArch),
+		m.renderInputLine("Installer", m.installerInput.View(), m.searchFocus == tuiSearchFocusInstaller),
+		m.renderInputLine("Resume", m.resumeInput.View(), m.searchFocus == tuiSearchFocusResume),
+		m.renderInputLine("Chunks", m.chunksInput.View(), m.searchFocus == tuiSearchFocusChunks),
+	}
+	results := []string{
+		tuiTitleStyle.Render("Step 2 选择结果"),
+		tuiMutedStyle.Render("Enter 只解析当前项 | d 下载入队 | i 安装入队 | Space 多选"),
+		fmt.Sprintf("Results: %d", len(m.searchResults)),
+	}
+	if len(m.searchResults) == 0 {
+		results = append(results, tuiMutedStyle.Render("还没有结果。先把焦点放到 Query，输入关键词后按 Enter 搜索。"))
+	} else {
+		window := maxInt(6, m.height/4)
+		start, end := visibleWindow(len(m.searchResults), m.searchCursor, window)
+		for index := start; index < end; index++ {
+			mark := "[ ]"
+			if m.searchSelected[index] {
+				mark = "[x]"
+			}
+			row := fmt.Sprintf("%s %s", mark, formatSearchRow(index+1, m.searchResults[index], m.width-18))
+			if index == m.searchCursor {
+				row = tuiSelectionStyle.Render("> " + row)
+			} else {
+				row = "  " + row
+			}
+			results = append(results, row)
+		}
+	}
+	return strings.Join([]string{
+		panelStyle(m.searchFocus != tuiSearchFocusResults, m.width-4).Render(strings.Join(form, "\n")),
+		panelStyle(m.searchFocus == tuiSearchFocusResults, m.width-4).Render(strings.Join(results, "\n")),
+	}, "\n")
+}
+
+func (m tuiModel) renderQueuePage() string {
+	lines := []string{
+		tuiTitleStyle.Render("执行队列"),
+		tuiMutedStyle.Render("先在 Search 或 Batch 入队；这里会自动串行执行。"),
+		tuiMutedStyle.Render("x 清理已结束 | u 追加卸载任务 | p 追加修复任务"),
+		fmt.Sprintf("Tasks: %d", len(m.queueTasks)),
+	}
+	if len(m.queueTasks) == 0 {
+		lines = append(lines, tuiMutedStyle.Render("队列为空。去 Search 搜索后按 d/i，或去 Batch 加载配置后按 e。"))
+	} else {
+		window := maxInt(8, m.height/3)
+		start, end := visibleWindow(len(m.queueTasks), m.queueCursor, window)
+		for index := start; index < end; index++ {
+			row := formatQueueTaskRow(m.queueTasks[index], m.width-12)
+			if index == m.queueCursor {
+				row = tuiSelectionStyle.Render("> " + row)
+			} else {
+				row = "  " + row
+			}
+			lines = append(lines, row)
+		}
+	}
+	return panelStyle(true, m.width-4).Render(strings.Join(lines, "\n"))
+}
+
+func (m tuiModel) renderMirrorsPage() string {
+	lines := []string{
+		tuiTitleStyle.Render("测速镜像"),
+		tuiMutedStyle.Render("先选 source，再按 Enter 或 r 开始测速。"),
+		m.renderSourceLine(true, m.mirrorSource),
+		"",
+		fmt.Sprintf("Mirror Results: %d", len(m.mirrorResults)),
+	}
+	if len(m.mirrorResults) == 0 {
+		lines = append(lines, tuiMutedStyle.Render("按 Enter 或 r 开始测速。"))
+	} else {
+		window := maxInt(6, m.height/4)
+		start, end := visibleWindow(len(m.mirrorResults), m.mirrorCursor, window)
+		for index := start; index < end; index++ {
+			row := formatMirrorRow(m.mirrorResults[index], m.width-12)
+			if index == m.mirrorCursor {
+				row = tuiSelectionStyle.Render("> " + row)
+			} else {
+				row = "  " + row
+			}
+			lines = append(lines, row)
+		}
+	}
+	return panelStyle(true, m.width-4).Render(strings.Join(lines, "\n"))
+}
+
+func (m tuiModel) renderBatchPage() string {
+	head := []string{
+		tuiTitleStyle.Render("Step 1 加载配置"),
+		tuiMutedStyle.Render("把 YAML 路径填在下面，按 Enter 或 l 加载。"),
+		m.renderInputLine("Config", m.batchConfigInput.View(), m.batchFocus == tuiBatchFocusConfig),
+	}
+	list := []string{
+		tuiTitleStyle.Render("Step 2 选择任务"),
+		tuiMutedStyle.Render("Space 多选 | e 入队 | 支持 DOWNLOAD 和 INSTALL 混合任务"),
+		fmt.Sprintf("Batch Tasks: %d", len(m.batchTasks)),
+	}
+	if len(m.batchTasks) == 0 {
+		list = append(list, tuiMutedStyle.Render("还没有任务。先在上方填写配置路径，再按 Enter 或 l 加载。"))
+	} else {
+		window := maxInt(6, m.height/4)
+		start, end := visibleWindow(len(m.batchTasks), m.batchCursor, window)
+		for index := start; index < end; index++ {
+			mark := "[ ]"
+			if m.batchSelected[index] {
+				mark = "[x]"
+			}
+			row := fmt.Sprintf("%s %s", mark, formatBatchTaskRow(index+1, m.batchTasks[index], m.width-18))
+			if index == m.batchCursor {
+				row = tuiSelectionStyle.Render("> " + row)
+			} else {
+				row = "  " + row
+			}
+			list = append(list, row)
+		}
+	}
+	return strings.Join([]string{
+		panelStyle(m.batchFocus == tuiBatchFocusConfig, m.width-4).Render(strings.Join(head, "\n")),
+		panelStyle(m.batchFocus == tuiBatchFocusTasks, m.width-4).Render(strings.Join(list, "\n")),
+	}, "\n")
+}
+
+func (m tuiModel) renderDetailPanel() string {
+	title := "Details"
+	var content string
+	switch m.page {
+	case tuiPageSearch:
+		title = "Search Details"
+		content = m.searchDetail
+	case tuiPageQueue:
+		title = "Queue Details"
+		content = m.currentQueueDetail()
+	case tuiPageMirrors:
+		title = "Mirror Details"
+		content = m.mirrorDetail
+	case tuiPageBatch:
+		title = "Batch Details"
+		content = m.batchDetail
+	}
+	if strings.TrimSpace(content) == "" {
+		content = "当前页还没有可显示的信息。"
+	}
+	return panelStyle(false, m.width-4).Render(tuiSectionTitleStyle.Render(title) + "\n" + content)
+}
+
+func (m tuiModel) renderStatusBar() string {
+	statusStyle := tuiHelpStyle
+	switch {
+	case strings.Contains(m.status, "失败"):
+		statusStyle = tuiErrorStyle
+	case strings.Contains(m.status, "完成"):
+		statusStyle = tuiOKStyle
+	case m.busy || m.queue.hasUnfinished():
+		statusStyle = tuiWarningStyle
+	}
+	return tuiStatusBarBoxStyle.Width(maxInt(36, m.width-4)).Render(
+		statusStyle.Render("Status: "+m.status) + "\n" + tuiHelpStyle.Render(m.pageHelp()),
+	)
+}
+
+func (m tuiModel) pageHelp() string {
+	base := "全局: 1 Search | 2 Queue | 3 Mirrors | 4 Batch | q 退出"
+	switch m.page {
+	case tuiPageSearch:
+		return base + "\n当前页: Step1 配条件, Step2 选结果 | Tab 切焦点 | Enter 搜索/解析 | d 下载入队 | i 安装入队 | Space 多选"
+	case tuiPageQueue:
+		return base + "\n当前页: 看执行结果和补救动作 | j/k 移动 | x 清理已结束 | u 卸载 | p 修复"
+	case tuiPageMirrors:
+		return base + "\n当前页: 先选 source 再测速 | Enter/r 测速 | 左右切 source | j/k 看结果"
+	case tuiPageBatch:
+		return base + "\n当前页: Step1 加载 YAML, Step2 选任务 | Enter/l 加载配置 | Space 多选 | e 入队 | a 全选 | c 清空"
+	default:
+		return base
+	}
+}
+
+func (m *tuiModel) resizeInputs() {
+	width := maxInt(18, m.width-22)
+	m.queryInput.Width = width
+	m.outputInput.Width = width
+	m.mirrorInput.Width = width
+	m.authInput.Width = minInt(22, maxInt(12, m.width-22))
+	m.limitInput.Width = minInt(8, maxInt(4, m.width-22))
+	m.archInput.Width = minInt(12, maxInt(6, m.width-22))
+	m.installerInput.Width = minInt(12, maxInt(6, m.width-22))
+	m.resumeInput.Width = minInt(8, maxInt(5, m.width-22))
+	m.chunksInput.Width = minInt(8, maxInt(4, m.width-22))
+	m.batchConfigInput.Width = width
+}
+
+func (m *tuiModel) refreshQueueSnapshot() {
+	m.queueTasks = m.queue.snapshot()
+	if len(m.queueTasks) == 0 {
+		m.queueCursor = 0
+		return
+	}
+	if m.queueCursor >= len(m.queueTasks) {
+		m.queueCursor = len(m.queueTasks) - 1
+	}
+}
+
+func (m *tuiModel) cycleSearchFocus(delta int) {
+	m.searchFocus = (m.searchFocus + delta + tuiSearchFocusCount) % tuiSearchFocusCount
+	if m.searchFocus == tuiSearchFocusResults && len(m.searchResults) == 0 {
+		m.searchFocus = tuiSearchFocusQuery
+	}
+	m.setSearchFocus(m.searchFocus)
+}
+
+func (m *tuiModel) setSearchFocus(focus int) {
+	m.searchFocus = focus
+	m.queryInput.Blur()
+	m.outputInput.Blur()
+	m.mirrorInput.Blur()
+	m.limitInput.Blur()
+	m.authInput.Blur()
+	m.archInput.Blur()
+	m.installerInput.Blur()
+	m.resumeInput.Blur()
+	m.chunksInput.Blur()
+	switch focus {
+	case tuiSearchFocusQuery:
+		m.queryInput.Focus()
+	case tuiSearchFocusOutput:
+		m.outputInput.Focus()
+	case tuiSearchFocusMirror:
+		m.mirrorInput.Focus()
+	case tuiSearchFocusLimit:
+		m.limitInput.Focus()
+	case tuiSearchFocusAuth:
+		m.authInput.Focus()
+	case tuiSearchFocusArch:
+		m.archInput.Focus()
+	case tuiSearchFocusInstaller:
+		m.installerInput.Focus()
+	case tuiSearchFocusResume:
+		m.resumeInput.Focus()
+	case tuiSearchFocusChunks:
+		m.chunksInput.Focus()
+	}
+}
+
+func (m *tuiModel) setBatchFocus(focus int) {
+	m.batchFocus = focus
+	m.batchConfigInput.Blur()
+	if focus == tuiBatchFocusConfig {
+		m.batchConfigInput.Focus()
+	}
+}
+
+func (m *tuiModel) cycleBatchFocus(delta int) {
+	m.batchFocus = (m.batchFocus + delta + tuiBatchFocusCount) % tuiBatchFocusCount
+	if m.batchFocus == tuiBatchFocusTasks && len(m.batchTasks) == 0 {
+		m.batchFocus = tuiBatchFocusConfig
+	}
+	m.setBatchFocus(m.batchFocus)
+}
+
+func (m *tuiModel) moveSearchSource(delta int) {
+	m.searchSource = (m.searchSource + delta + len(m.sourceOptions)) % len(m.sourceOptions)
+}
+
+func (m *tuiModel) moveSearchCursor(delta int) {
+	if len(m.searchResults) == 0 {
+		return
+	}
+	m.searchCursor = minInt(len(m.searchResults)-1, maxInt(0, m.searchCursor+delta))
+	m.updateSearchDetailFromSelection()
+}
+
+func (m *tuiModel) toggleSearchSelection(index int) {
+	if index < 0 || index >= len(m.searchResults) {
+		return
+	}
+	if m.searchSelected[index] {
+		delete(m.searchSelected, index)
+	} else {
+		m.searchSelected[index] = true
+	}
+	m.updateSearchDetailFromSelection()
+}
+
+func (m *tuiModel) selectAllSearchResults() {
+	for index := range m.searchResults {
+		m.searchSelected[index] = true
+	}
+	m.status = fmt.Sprintf("已选中 %d 个搜索结果", len(m.searchResults))
+	m.updateSearchDetailFromSelection()
+}
+
+func (m *tuiModel) updateSearchDetailFromSelection() {
+	if len(m.searchResults) == 0 || m.searchCursor < 0 || m.searchCursor >= len(m.searchResults) {
+		m.searchDetail = "还没有搜索结果。"
+		return
+	}
+	selected := selectedIndexes(m.searchSelected)
+	if len(selected) > 0 {
+		lines := []string{
+			"Selected Results",
+			fmt.Sprintf("Count: %d", len(selected)),
+			"下一步: d 下载入队，i 安装入队。",
+			"",
+		}
+		for _, index := range selected {
+			result := m.searchResults[index]
+			lines = append(lines, fmt.Sprintf("#%d %s:%s", index+1, result.Source, result.Identifier))
+		}
+		m.searchDetail = strings.Join(lines, "\n")
+		return
+	}
+	m.searchDetail = formatSearchResultDetail(m.searchCursor+1, m.searchResults[m.searchCursor])
+}
+
+func (m tuiModel) startSearch() (tea.Model, tea.Cmd) {
+	if m.busy {
+		m.status = "前台操作进行中，请稍后"
+		return m, nil
+	}
+	if strings.TrimSpace(m.queryInput.Value()) == "" {
+		m.status = "query 不能为空"
+		return m, nil
+	}
+	limit, err := strconv.Atoi(strings.TrimSpace(m.limitInput.Value()))
+	if err != nil || limit <= 0 {
+		m.status = "limit 必须是正整数"
+		return m, nil
+	}
+	if _, err := parseOptionalBool(strings.TrimSpace(m.resumeInput.Value()), false); err != nil {
+		m.status = "resume 必须是 true 或 false"
+		return m, nil
+	}
+	chunks, err := parseOptionalInt(strings.TrimSpace(m.chunksInput.Value()), 1)
+	if err != nil || chunks <= 0 {
+		m.status = "chunks 必须是正整数"
+		return m, nil
+	}
+	m.busy = true
+	m.status = "正在搜索..."
+	return m, m.searchCmd()
+}
+
+func (m tuiModel) searchCmd() tea.Cmd {
+	authProfile := strings.TrimSpace(m.authInput.Value())
+	req := SearchRequest{
+		Source:      strings.TrimSpace(m.sourceOptions[m.searchSource]),
+		Query:       strings.TrimSpace(m.queryInput.Value()),
+		Mirror:      strings.TrimSpace(m.mirrorInput.Value()),
+		Limit:       mustPositiveInt(m.limitInput.Value(), 10),
+		AuthProfile: authProfile,
+	}
+	client := m.client
+	timeout := m.timeout
+	configPath := m.configPath
+	return func() tea.Msg {
+		cfg, err := loadOptionalRuntimeConfigWithPolicy(configPath, m.configOptional)
+		if err != nil {
+			return tuiSearchFinishedMsg{err: err}
+		}
+		options, err := cfg.ResolveRequestOptions(authProfile)
+		if err != nil {
+			return tuiSearchFinishedMsg{err: err}
+		}
+		req.RequestOptions = options
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		results, err := searchPackages(ctx, client, req)
+		return tuiSearchFinishedMsg{results: results, err: err}
+	}
+}
+
+func (m tuiModel) resolveSelectedCmd() tea.Cmd {
+	req, err := m.currentSearchRequest()
+	if err != nil {
+		return func() tea.Msg { return tuiResolveFinishedMsg{err: err} }
+	}
+	client := m.client
+	timeout := m.timeout
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		plan, err := resolveDownloadPlan(ctx, client, req)
+		return tuiResolveFinishedMsg{plan: plan, err: err}
+	}
+}
+
+func (m tuiModel) mirrorCmd() tea.Cmd {
+	source := m.sourceOptions[m.mirrorSource]
+	client := m.client
+	timeout := m.timeout
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		results, err := testMirrors(ctx, client, source)
+		return tuiMirrorFinishedMsg{results: results, err: err}
+	}
+}
+
+func (m tuiModel) batchLoadCmd() tea.Cmd {
+	path := strings.TrimSpace(m.batchConfigInput.Value())
+	return func() tea.Msg {
+		cfg, err := loadBatchConfig(path)
+		if err != nil {
+			return tuiBatchLoadedMsg{err: err}
+		}
+		timeout, err := cfg.TimeoutValue()
+		if err != nil {
+			return tuiBatchLoadedMsg{err: err}
+		}
+		tasks := make([]tuiBatchTask, 0, len(cfg.Downloads)+len(cfg.Installs))
+		for _, task := range cfg.Downloads {
+			req, err := cfg.BindDownloadRequest(task)
+			if err != nil {
+				return tuiBatchLoadedMsg{err: err}
+			}
+			if strings.TrimSpace(req.OutputDir) == "" {
+				req.OutputDir = cfg.OutputDir
+			}
+			tasks = append(tasks, tuiBatchTask{
+				Label:  taskDisplayName(req),
+				Detail: formatBatchRequestDetail(len(tasks)+1, tuiQueueItem{Action: "download", Request: req}),
+				Item: tuiQueueItem{
+					Action:  "download",
+					Request: req,
+					Origin:  "batch",
+					Timeout: timeout,
+				},
+			})
+		}
+		for _, task := range cfg.Installs {
+			req, err := cfg.BindInstallRequest(task)
+			if err != nil {
+				return tuiBatchLoadedMsg{err: err}
+			}
+			if strings.TrimSpace(req.OutputDir) == "" {
+				req.OutputDir = cfg.OutputDir
+			}
+			tasks = append(tasks, tuiBatchTask{
+				Label:  installTaskDisplayName(req),
+				Detail: formatBatchRequestDetail(len(tasks)+1, tuiQueueItem{Action: "install", Install: req}),
+				Item: tuiQueueItem{
+					Action:  "install",
+					Install: req,
+					Origin:  "batch",
+					Timeout: timeout,
+				},
+			})
+		}
+		return tuiBatchLoadedMsg{cfg: cfg, tasks: tasks, timeout: timeout}
+	}
+}
+
+func (m tuiModel) queueTaskCmd(work tuiQueueWork) tea.Cmd {
+	client := m.client
+	timeout := work.Timeout
+	if timeout <= 0 {
+		timeout = m.timeout
+	}
+	queue := m.queue
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		switch work.Action {
+		case "install":
+			plan, err := resolveInstallPlan(ctx, client, work.Install)
+			if err != nil {
+				queue.fail(work.ID, err)
+				return tuiQueueTaskFinishedMsg{taskID: work.ID, label: work.Label, err: err}
+			}
+			queue.setInstallPlan(work.ID, plan)
+			result, err := executeInstallPlan(ctx, client, plan, DownloadOptions{
+				OutputDir:      work.Install.OutputDir,
+				Resume:         work.Install.Resume,
+				Chunks:         work.Install.Chunks,
+				RequestOptions: work.Install.RequestOptions,
+			})
+			if err != nil {
+				queue.fail(work.ID, err)
+				return tuiQueueTaskFinishedMsg{taskID: work.ID, label: work.Label, err: err}
+			}
+			queue.completeInstall(work.ID, plan, result)
+			return tuiQueueTaskFinishedMsg{taskID: work.ID, label: work.Label}
+		case "uninstall":
+			queue.setStatus(work.ID, "uninstalling")
+			result, err := executeUninstall(work.Uninstall)
+			if err != nil {
+				queue.fail(work.ID, err)
+				return tuiQueueTaskFinishedMsg{taskID: work.ID, label: work.Label, err: err}
+			}
+			queue.completeUninstall(work.ID, result)
+			return tuiQueueTaskFinishedMsg{taskID: work.ID, label: work.Label}
+		case "repair":
+			queue.setStatus(work.ID, "repairing")
+			result, err := executeRepair(work.Repair)
+			if err != nil {
+				queue.fail(work.ID, err)
+				return tuiQueueTaskFinishedMsg{taskID: work.ID, label: work.Label, err: err}
+			}
+			queue.completeRepair(work.ID, result)
+			return tuiQueueTaskFinishedMsg{taskID: work.ID, label: work.Label}
+		default:
+			plan, err := resolveDownloadPlan(ctx, client, work.Request)
+			if err != nil {
+				queue.fail(work.ID, err)
+				return tuiQueueTaskFinishedMsg{taskID: work.ID, label: work.Label, err: err}
+			}
+			queue.setPlan(work.ID, plan)
+			result, err := downloadPlanWithProgressCallback(ctx, client, plan, downloadOptionsFromRequest(work.Request), io.Discard, func(progress DownloadProgress) {
+				queue.updateProgress(work.ID, progress)
+			})
+			if err != nil {
+				queue.fail(work.ID, err)
+				return tuiQueueTaskFinishedMsg{taskID: work.ID, label: work.Label, err: err}
+			}
+			queue.complete(work.ID, plan, result)
+			return tuiQueueTaskFinishedMsg{taskID: work.ID, label: work.Label}
+		}
+	}
+}
+
+func (m tuiModel) currentSearchRequest() (DownloadRequest, error) {
+	if len(m.searchResults) == 0 {
+		return DownloadRequest{}, errors.New("no search results to pick from")
+	}
+	options, err := m.searchPickOptions()
+	if err != nil {
+		return DownloadRequest{}, err
+	}
+	return downloadRequestFromSearchResult(m.searchResults, m.searchCursor+1, options)
+}
+
+func (m tuiModel) selectedSearchRequests() ([]tuiQueueItem, error) {
+	if len(m.searchResults) == 0 {
+		return nil, errors.New("没有可加入队列的搜索结果")
+	}
+	picks := selectedIndexes(m.searchSelected)
+	if len(picks) == 0 {
+		picks = []int{m.searchCursor}
+	}
+	for index := range picks {
+		picks[index]++
+	}
+	options, err := m.searchPickOptions()
+	if err != nil {
+		return nil, err
+	}
+	requests, err := downloadRequestsFromSearchResults(m.searchResults, picks, options)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]tuiQueueItem, 0, len(requests))
+	for _, req := range requests {
+		items = append(items, tuiQueueItem{
+			Action:  "download",
+			Request: req,
+			Origin:  "search",
+		})
+	}
+	return items, nil
+}
+
+func (m tuiModel) selectedSearchInstallRequests() ([]tuiQueueItem, error) {
+	if len(m.searchResults) == 0 {
+		return nil, errors.New("没有可加入队列的搜索结果")
+	}
+	picks := selectedIndexes(m.searchSelected)
+	if len(picks) == 0 {
+		picks = []int{m.searchCursor}
+	}
+	options, err := m.searchPickOptions()
+	if err != nil {
+		return nil, err
+	}
+	items := make([]tuiQueueItem, 0, len(picks))
+	for _, index := range picks {
+		if index < 0 || index >= len(m.searchResults) {
+			continue
+		}
+		result := m.searchResults[index]
+		if !strings.EqualFold(result.Source, "npm") {
+			return nil, fmt.Errorf("TUI 安装当前仅支持 npm，结果 #%d 来自 %s", index+1, result.Source)
+		}
+		items = append(items, tuiQueueItem{
+			Action: "install",
+			Install: InstallRequest{
+				Source:         "npm",
+				Name:           result.Identifier,
+				Version:        result.Version,
+				OutputDir:      options.OutputDir,
+				Mirror:         options.Mirror,
+				AuthProfile:    options.AuthProfile,
+				Resume:         options.Resume,
+				Chunks:         options.Chunks,
+				ScriptsPolicy:  "none",
+				RequestOptions: options.RequestOptions,
+			},
+			Origin: "search",
+		})
+	}
+	if len(items) == 0 {
+		return nil, errors.New("没有可加入队列的安装任务")
+	}
+	return items, nil
+}
+
+func (m tuiModel) selectedBatchRequests() ([]tuiQueueItem, error) {
+	if len(m.batchTasks) == 0 {
+		return nil, errors.New("还没有加载批量任务")
+	}
+	indexes := selectedIndexes(m.batchSelected)
+	if len(indexes) == 0 {
+		indexes = []int{m.batchCursor}
+	}
+	items := make([]tuiQueueItem, 0, len(indexes))
+	origin := "batch"
+	if path := strings.TrimSpace(m.batchConfigInput.Value()); path != "" {
+		origin = "batch:" + filepath.Base(path)
+	}
+	for _, index := range indexes {
+		if index >= 0 && index < len(m.batchTasks) {
+			item := m.batchTasks[index].Item
+			item.Origin = origin
+			item.Timeout = m.batchTimeout
+			items = append(items, item)
+		}
+	}
+	if len(items) == 0 {
+		return nil, errors.New("没有可加入队列的批量任务")
+	}
+	return items, nil
+}
+
+func (m *tuiModel) updateMirrorDetail() {
+	if len(m.mirrorResults) == 0 || m.mirrorCursor < 0 || m.mirrorCursor >= len(m.mirrorResults) {
+		m.mirrorDetail = "按 Enter 或 r 开始测速。"
+		return
+	}
+	m.mirrorDetail = formatMirrorDetail(m.mirrorResults[m.mirrorCursor])
+}
+
+func (m *tuiModel) updateBatchDetail() {
+	if len(m.batchTasks) == 0 || m.batchCursor < 0 || m.batchCursor >= len(m.batchTasks) {
+		m.batchDetail = "按 Enter 或 l 加载批量配置。"
+		return
+	}
+	header := []string{
+		fmt.Sprintf("Config: %s", blankIfEmpty(strings.TrimSpace(m.batchConfigInput.Value()), "-")),
+		fmt.Sprintf("Timeout: %s", formatOptionalDuration(m.batchTimeout)),
+	}
+	selected := selectedIndexes(m.batchSelected)
+	if len(selected) > 0 {
+		lines := append(header, "", fmt.Sprintf("Selected Batch Tasks: %d", len(selected)))
+		for _, index := range selected {
+			if index >= 0 && index < len(m.batchTasks) {
+				lines = append(lines, fmt.Sprintf("#%d %s", index+1, m.batchTasks[index].Label))
+			}
+		}
+		lines = append(lines, "", "e 可把已选任务全部加入队列。")
+		m.batchDetail = strings.Join(lines, "\n")
+		return
+	}
+	lines := append(header, "", m.batchTasks[m.batchCursor].Detail)
+	m.batchDetail = strings.Join(lines, "\n")
+}
+
+func (m tuiModel) currentQueueDetail() string {
+	if len(m.queueTasks) == 0 || m.queueCursor < 0 || m.queueCursor >= len(m.queueTasks) {
+		return "队列为空。"
+	}
+	return formatQueueTaskDetail(m.queueTasks[m.queueCursor])
+}
+
+func (m tuiModel) searchPickOptions() (SearchPickOptions, error) {
+	outputDir := strings.TrimSpace(m.outputInput.Value())
+	if outputDir == "" {
+		outputDir = "."
+	}
+	absOutput, err := filepath.Abs(outputDir)
+	if err != nil {
+		return SearchPickOptions{}, fmt.Errorf("resolve output dir: %w", err)
+	}
+	installerIndex, err := parseOptionalInt(strings.TrimSpace(m.installerInput.Value()), -1)
+	if err != nil {
+		return SearchPickOptions{}, fmt.Errorf("installer-index 必须是整数: %w", err)
+	}
+	resume, err := parseOptionalBool(strings.TrimSpace(m.resumeInput.Value()), false)
+	if err != nil {
+		return SearchPickOptions{}, fmt.Errorf("resume 必须是 true 或 false: %w", err)
+	}
+	chunks, err := parseOptionalInt(strings.TrimSpace(m.chunksInput.Value()), 1)
+	if err != nil || chunks <= 0 {
+		return SearchPickOptions{}, errors.New("chunks 必须是正整数")
+	}
+	cfg, err := loadOptionalRuntimeConfigWithPolicy(m.configPath, m.configOptional)
+	if err != nil {
+		return SearchPickOptions{}, err
+	}
+	authProfile := strings.TrimSpace(m.authInput.Value())
+	requestOptions, err := cfg.ResolveRequestOptions(authProfile)
+	if err != nil {
+		return SearchPickOptions{}, err
+	}
+	return SearchPickOptions{
+		Mirror:         strings.TrimSpace(m.mirrorInput.Value()),
+		OutputDir:      absOutput,
+		AuthProfile:    authProfile,
+		Arch:           strings.TrimSpace(m.archInput.Value()),
+		InstallerIndex: installerIndex,
+		Resume:         resume,
+		Chunks:         chunks,
+		RequestOptions: requestOptions,
+	}, nil
+}
+
+func (q *tuiQueueState) enqueue(items []tuiQueueItem) int {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	count := 0
+	now := time.Now()
+	for _, item := range items {
+		q.nextID++
+		task := &tuiQueueTask{
+			ID:        q.nextID,
+			Action:    item.Action,
+			Origin:    strings.TrimSpace(item.Origin),
+			Timeout:   item.Timeout,
+			Status:    "pending",
+			Enqueued:  now,
+			UpdatedAt: now,
+		}
+		switch item.Action {
+		case "install":
+			task.Install = item.Install
+			if strings.TrimSpace(task.Install.OutputDir) == "" {
+				task.Install.OutputDir = "."
+			}
+			task.Label = installTaskDisplayName(task.Install)
+		case "uninstall":
+			task.Uninstall = item.Uninstall
+			if strings.TrimSpace(task.Uninstall.OutputDir) == "" {
+				task.Uninstall.OutputDir = "."
+			}
+			task.Label = "uninstall:" + task.Uninstall.OutputDir
+		case "repair":
+			task.Repair = item.Repair
+			if strings.TrimSpace(task.Repair.OutputDir) == "" {
+				task.Repair.OutputDir = "."
+			}
+			task.Label = "repair:" + task.Repair.OutputDir
+		default:
+			task.Request = item.Request
+			if strings.TrimSpace(task.Request.OutputDir) == "" {
+				task.Request.OutputDir = "."
+			}
+			task.Action = "download"
+			task.Label = taskDisplayName(task.Request)
+		}
+		q.tasks = append(q.tasks, task)
+		count++
+	}
+	return count
+}
+
+func (q *tuiQueueState) startNext() (tuiQueueWork, bool) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if q.running {
+		return tuiQueueWork{}, false
+	}
+	for _, task := range q.tasks {
+		if task.Status == "pending" {
+			q.running = true
+			task.Status = "resolving"
+			task.UpdatedAt = time.Now()
+			return tuiQueueWork{
+				ID:        task.ID,
+				Action:    task.Action,
+				Label:     task.Label,
+				Origin:    task.Origin,
+				Timeout:   task.Timeout,
+				Request:   task.Request,
+				Install:   task.Install,
+				Uninstall: task.Uninstall,
+				Repair:    task.Repair,
+			}, true
+		}
+	}
+	return tuiQueueWork{}, false
+}
+
+func (q *tuiQueueState) isRunning() bool {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	return q.running
+}
+
+func (q *tuiQueueState) hasUnfinished() bool {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if q.running {
+		return true
+	}
+	for _, task := range q.tasks {
+		switch task.Status {
+		case "pending", "resolving", "downloading", "installing", "uninstalling", "repairing":
+			return true
+		}
+	}
+	return false
+}
+
+func (q *tuiQueueState) setPlan(id int, plan DownloadPlan) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	for _, task := range q.tasks {
+		if task.ID == id {
+			task.Plan = plan
+			task.Status = "downloading"
+			task.UpdatedAt = time.Now()
+			return
+		}
+	}
+}
+
+func (q *tuiQueueState) setInstallPlan(id int, plan InstallPlan) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	for _, task := range q.tasks {
+		if task.ID == id {
+			task.InstallPlan = plan
+			task.Status = "installing"
+			task.UpdatedAt = time.Now()
+			return
+		}
+	}
+}
+
+func (q *tuiQueueState) setStatus(id int, status string) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	for _, task := range q.tasks {
+		if task.ID == id {
+			task.Status = status
+			task.UpdatedAt = time.Now()
+			return
+		}
+	}
+}
+
+func (q *tuiQueueState) updateProgress(id int, progress DownloadProgress) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	for _, task := range q.tasks {
+		if task.ID == id {
+			task.Progress = progress
+			task.Status = "downloading"
+			task.UpdatedAt = time.Now()
+			return
+		}
+	}
+}
+
+func (q *tuiQueueState) complete(id int, plan DownloadPlan, result DownloadResult) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	for _, task := range q.tasks {
+		if task.ID == id {
+			task.Plan = plan
+			task.Result = result
+			task.Status = "completed"
+			task.Error = ""
+			task.UpdatedAt = time.Now()
+			q.running = false
+			return
+		}
+	}
+}
+
+func (q *tuiQueueState) completeInstall(id int, plan InstallPlan, result InstallResult) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	for _, task := range q.tasks {
+		if task.ID == id {
+			task.InstallPlan = plan
+			task.InstallResult = result
+			task.Status = "completed"
+			task.Error = ""
+			task.UpdatedAt = time.Now()
+			q.running = false
+			return
+		}
+	}
+}
+
+func (q *tuiQueueState) completeUninstall(id int, result UninstallResult) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	for _, task := range q.tasks {
+		if task.ID == id {
+			task.UninstallResult = result
+			task.Status = "completed"
+			task.Error = ""
+			task.UpdatedAt = time.Now()
+			q.running = false
+			return
+		}
+	}
+}
+
+func (q *tuiQueueState) completeRepair(id int, result RepairResult) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	for _, task := range q.tasks {
+		if task.ID == id {
+			task.RepairResult = result
+			task.Status = "completed"
+			task.Error = ""
+			task.UpdatedAt = time.Now()
+			q.running = false
+			return
+		}
+	}
+}
+
+func (q *tuiQueueState) fail(id int, err error) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	for _, task := range q.tasks {
+		if task.ID == id {
+			task.Status = "failed"
+			task.Error = err.Error()
+			task.UpdatedAt = time.Now()
+			q.running = false
+			return
+		}
+	}
+}
+
+func (q *tuiQueueState) clearFinished() int {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	kept := make([]*tuiQueueTask, 0, len(q.tasks))
+	removed := 0
+	for _, task := range q.tasks {
+		if task.Status == "completed" || task.Status == "failed" {
+			removed++
+			continue
+		}
+		kept = append(kept, task)
+	}
+	q.tasks = kept
+	return removed
+}
+
+func (q *tuiQueueState) snapshot() []tuiQueueTask {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	items := make([]tuiQueueTask, 0, len(q.tasks))
+	for _, task := range q.tasks {
+		items = append(items, *task)
+	}
+	return items
+}
+
+func tuiTickCmd() tea.Cmd {
+	return tea.Tick(tuiRefreshInterval, func(t time.Time) tea.Msg {
+		return tuiTickMsg(t)
+	})
+}
+
+func panelStyle(focused bool, width int) lipgloss.Style {
+	style := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(1, 2).Background(lipgloss.Color("235")).Foreground(lipgloss.Color("252"))
+	if width > 0 {
+		style = style.Width(width)
+	}
+	if focused {
+		style = style.BorderForeground(lipgloss.Color("69"))
+	} else {
+		style = style.BorderForeground(lipgloss.Color("240"))
+	}
+	return style
+}
+
+func (m tuiModel) renderSourceLine(focused bool, selected int) string {
+	parts := make([]string, 0, len(m.sourceOptions))
+	for index, option := range m.sourceOptions {
+		style := tuiSubtleBadgeStyle.Copy()
+		if index == selected {
+			style = tuiBadgeStyle.Copy().Bold(true)
+		}
+		parts = append(parts, style.Render(option))
+	}
+	prefix := tuiMutedStyle.Render(" ")
+	if focused {
+		prefix = tuiBadgeStyle.Render(">")
+	}
+	return fmt.Sprintf("%s %s %s", prefix, tuiFieldLabelStyle.Render("Source"), strings.Join(parts, " "))
+}
+
+func (m tuiModel) renderInputLine(label string, value string, focused bool) string {
+	prefix := tuiMutedStyle.Render(" ")
+	if focused {
+		prefix = tuiBadgeStyle.Render(">")
+	}
+	return fmt.Sprintf("%s %s %s", prefix, tuiFieldLabelStyle.Width(10).Render(strings.TrimSpace(label)), value)
+}
+
+func formatSearchRow(index int, result SearchResult, maxWidth int) string {
+	row := fmt.Sprintf("[%d] %-7s %-28s %-12s %s", index, strings.ToUpper(result.Source), truncateText(result.Identifier, 28), blankIfEmpty(result.Version, "-"), truncateText(result.Description, 48))
+	return truncateText(row, maxInt(24, maxWidth))
+}
+
+func formatSearchResultDetail(index int, result SearchResult) string {
+	lines := []string{
+		fmt.Sprintf("Selected: #%d", index),
+		fmt.Sprintf("Source: %s", result.Source),
+		fmt.Sprintf("Mirror: %s", blankIfEmpty(result.MirrorName, "-")),
+		fmt.Sprintf("Identifier: %s", result.Identifier),
+		fmt.Sprintf("Version: %s", blankIfEmpty(result.Version, "-")),
+		fmt.Sprintf("Description: %s", blankIfEmpty(result.Description, "-")),
+	}
+	if strings.TrimSpace(result.Detail) != "" {
+		lines = append(lines, fmt.Sprintf("Detail: %s", result.Detail))
+	}
+	lines = append(lines, "", "Enter 解析当前项，Space 多选，d 下载入队，i 安装入队。")
+	return strings.Join(lines, "\n")
+}
+
+func formatDownloadPlanText(plan DownloadPlan) string {
+	var builder strings.Builder
+	printDownloadPlan(&builder, plan)
+	return strings.TrimSpace(builder.String())
+}
+
+func formatMirrorRow(result MirrorResult, maxWidth int) string {
+	status := "no"
+	if result.OK {
+		status = "yes"
+	}
+	row := fmt.Sprintf("%-8s %-12s %-3s %-8s %-8s %s", strings.ToUpper(result.Source), result.Name, status, roundDuration(result.FirstByte), roundDuration(result.Total), truncateText(result.Detail, 36))
+	return truncateText(row, maxInt(24, maxWidth))
+}
+
+func formatMirrorDetail(result MirrorResult) string {
+	lines := []string{
+		fmt.Sprintf("Source: %s", result.Source),
+		fmt.Sprintf("Mirror: %s", result.Name),
+		fmt.Sprintf("Base URL: %s", result.BaseURL),
+		fmt.Sprintf("OK: %t", result.OK),
+		fmt.Sprintf("Status Code: %d", result.StatusCode),
+		fmt.Sprintf("First Byte: %s", roundDuration(result.FirstByte)),
+		fmt.Sprintf("Total: %s", roundDuration(result.Total)),
+		fmt.Sprintf("Detail: %s", blankIfEmpty(result.Detail, "-")),
+	}
+	return strings.Join(lines, "\n")
+}
+
+func formatBatchTaskRow(index int, task tuiBatchTask, maxWidth int) string {
+	row := fmt.Sprintf("[%d] %-10s %-34s %s", index, strings.ToUpper(blankIfEmpty(task.Item.Action, "download")), truncateText(task.Label, 34), truncateText(batchTaskOutputDir(task.Item), 28))
+	return truncateText(row, maxInt(24, maxWidth))
+}
+
+func formatBatchRequestDetail(index int, item tuiQueueItem) string {
+	lines := []string{
+		fmt.Sprintf("Task: #%d", index),
+		fmt.Sprintf("Action: %s", blankIfEmpty(item.Action, "download")),
+	}
+	switch item.Action {
+	case "install":
+		lines = append(lines,
+			fmt.Sprintf("Source: %s", blankIfEmpty(item.Install.Source, "npm")),
+			fmt.Sprintf("Target: %s", installTaskDisplayName(item.Install)),
+			fmt.Sprintf("Version: %s", blankIfEmpty(item.Install.Version, "-")),
+			fmt.Sprintf("Mirror: %s", blankIfEmpty(item.Install.Mirror, "-")),
+			fmt.Sprintf("Auth: %s", blankIfEmpty(item.Install.AuthProfile, "-")),
+			fmt.Sprintf("Resume: %t", item.Install.Resume),
+			fmt.Sprintf("Chunks: %d", maxInt(1, item.Install.Chunks)),
+			fmt.Sprintf("Output: %s", blankIfEmpty(item.Install.OutputDir, "-")),
+		)
+	default:
+		lines = append(lines,
+			fmt.Sprintf("Source: %s", item.Request.Source),
+			fmt.Sprintf("Target: %s", taskDisplayName(item.Request)),
+			fmt.Sprintf("Version: %s", blankIfEmpty(item.Request.Version, "-")),
+			fmt.Sprintf("Mirror: %s", blankIfEmpty(item.Request.Mirror, "-")),
+			fmt.Sprintf("Auth: %s", blankIfEmpty(item.Request.AuthProfile, "-")),
+			fmt.Sprintf("Resume: %t", item.Request.Resume),
+			fmt.Sprintf("Chunks: %d", maxInt(1, item.Request.Chunks)),
+			fmt.Sprintf("Output: %s", blankIfEmpty(item.Request.OutputDir, "-")),
+		)
+	}
+	return strings.Join(lines, "\n")
+}
+
+func formatQueueTaskRow(task tuiQueueTask, maxWidth int) string {
+	row := fmt.Sprintf("#%-3d %-10s %-22s %s", task.ID, strings.ToUpper(task.Status), truncateText(task.Label, 22), formatQueueProgress(task))
+	return truncateText(row, maxInt(24, maxWidth))
+}
+
+func formatQueueTaskDetail(task tuiQueueTask) string {
+	lines := []string{
+		fmt.Sprintf("Task: #%d", task.ID),
+		fmt.Sprintf("Action: %s", blankIfEmpty(task.Action, "download")),
+		fmt.Sprintf("Label: %s", task.Label),
+		fmt.Sprintf("Origin: %s", blankIfEmpty(task.Origin, "-")),
+		fmt.Sprintf("Status: %s", task.Status),
+		fmt.Sprintf("Progress: %s", formatQueueProgress(task)),
+		fmt.Sprintf("Timeout: %s", formatOptionalDuration(task.Timeout)),
+	}
+	switch task.Action {
+	case "install":
+		lines = append(lines,
+			fmt.Sprintf("Auth: %s", blankIfEmpty(task.Install.AuthProfile, "-")),
+			fmt.Sprintf("Resume: %t", task.Install.Resume),
+			fmt.Sprintf("Chunks: %d", maxInt(1, task.Install.Chunks)),
+			fmt.Sprintf("Output: %s", blankIfEmpty(task.Install.OutputDir, "-")),
+		)
+		if task.InstallPlan.Root != "" {
+			lines = append(lines,
+				fmt.Sprintf("Root: %s", task.InstallPlan.Root),
+				fmt.Sprintf("Resolved Version: %s", task.InstallPlan.RootVersion),
+			)
+		}
+		if task.InstallResult.ManifestPath != "" {
+			lines = append(lines,
+				fmt.Sprintf("Manifest: %s", task.InstallResult.ManifestPath),
+				fmt.Sprintf("Lockfile: %s", blankIfEmpty(task.InstallResult.LockfilePath, "-")),
+				fmt.Sprintf("node_modules: %s", task.InstallResult.NodeModulesDir),
+			)
+		}
+	case "uninstall":
+		lines = append(lines, fmt.Sprintf("Output: %s", blankIfEmpty(task.Uninstall.OutputDir, "-")))
+		if task.UninstallResult.ManifestPath != "" {
+			lines = append(lines,
+				fmt.Sprintf("Manifest: %s", task.UninstallResult.ManifestPath),
+				fmt.Sprintf("Removed: %d", len(task.UninstallResult.RemovedPaths)),
+				fmt.Sprintf("Skipped: %d", len(task.UninstallResult.SkippedPaths)),
+			)
+		}
+	case "repair":
+		lines = append(lines, fmt.Sprintf("Output: %s", blankIfEmpty(task.Repair.OutputDir, "-")))
+		if task.RepairResult.ManifestPath != "" {
+			lines = append(lines,
+				fmt.Sprintf("Manifest: %s", task.RepairResult.ManifestPath),
+				fmt.Sprintf("Repaired: %d", len(task.RepairResult.RepairedPaths)),
+				fmt.Sprintf("Missing Cache: %d", len(task.RepairResult.MissingCachePaths)),
+			)
+		}
+	default:
+		lines = append(lines,
+			fmt.Sprintf("Auth: %s", blankIfEmpty(task.Request.AuthProfile, "-")),
+			fmt.Sprintf("Resume: %t", task.Request.Resume),
+			fmt.Sprintf("Chunks: %d", maxInt(1, task.Request.Chunks)),
+			fmt.Sprintf("Output: %s", blankIfEmpty(task.Request.OutputDir, "-")),
+		)
+	}
+	if task.Plan.URL != "" {
+		lines = append(lines, fmt.Sprintf("Resolved URL: %s", task.Plan.URL))
+	}
+	if task.Result.Path != "" {
+		lines = append(lines,
+			fmt.Sprintf("Saved To: %s", task.Result.Path),
+			fmt.Sprintf("Size: %d bytes", task.Result.Size),
+			fmt.Sprintf("SHA256: %s", task.Result.SHA256),
+		)
+	}
+	if task.Error != "" {
+		lines = append(lines, fmt.Sprintf("Error: %s", task.Error))
+	}
+	return strings.Join(lines, "\n")
+}
+
+func formatQueueProgress(task tuiQueueTask) string {
+	switch task.Status {
+	case "pending":
+		return "queued"
+	case "resolving":
+		return "resolving"
+	case "installing":
+		return "installing"
+	case "uninstalling":
+		return "uninstalling"
+	case "repairing":
+		return "repairing"
+	case "downloading":
+		if task.Progress.Total > 0 {
+			percent := float64(task.Progress.Written) * 100 / float64(task.Progress.Total)
+			return fmt.Sprintf("%s/%s %.1f%% %s/s", formatByteSize(task.Progress.Written), formatByteSize(task.Progress.Total), percent, formatProgressSpeed(task.Progress))
+		}
+		if task.Progress.Written > 0 {
+			return fmt.Sprintf("%s %s/s", formatByteSize(task.Progress.Written), formatProgressSpeed(task.Progress))
+		}
+		return "starting"
+	case "completed":
+		if task.Result.Size > 0 {
+			return fmt.Sprintf("done %s", formatByteSize(task.Result.Size))
+		}
+		return "done"
+	case "failed":
+		return "failed"
+	default:
+		return task.Status
+	}
+}
+
+func batchTaskOutputDir(item tuiQueueItem) string {
+	switch item.Action {
+	case "install":
+		return item.Install.OutputDir
+	case "uninstall":
+		return item.Uninstall.OutputDir
+	case "repair":
+		return item.Repair.OutputDir
+	default:
+		return item.Request.OutputDir
+	}
+}
+
+func formatProgressSpeed(progress DownloadProgress) string {
+	if progress.Elapsed <= 0 {
+		return "0B"
+	}
+	speed := int64(float64(progress.Written) / progress.Elapsed.Seconds())
+	return formatByteSize(speed)
+}
+
+func formatOptionalDuration(value time.Duration) string {
+	if value <= 0 {
+		return "-"
+	}
+	return value.String()
+}
+
+func visibleWindow(total int, selected int, size int) (int, int) {
+	if total <= 0 {
+		return 0, 0
+	}
+	if size <= 0 || size >= total {
+		return 0, total
+	}
+	if selected < 0 {
+		selected = 0
+	}
+	if selected >= total {
+		selected = total - 1
+	}
+	start := selected - size/2
+	if start < 0 {
+		start = 0
+	}
+	end := start + size
+	if end > total {
+		end = total
+		start = end - size
+	}
+	return start, end
+}
+
+func mustPositiveInt(value string, fallback int) int {
+	parsed, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil || parsed <= 0 {
+		return fallback
+	}
+	return parsed
+}
+
+func parseOptionalInt(value string, fallback int) (int, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return fallback, nil
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return 0, err
+	}
+	return parsed, nil
+}
+
+func parseOptionalBool(value string, fallback bool) (bool, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return fallback, nil
+	}
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return false, err
+	}
+	return parsed, nil
+}
+
+func sourceIndexFor(source string, options []string) int {
+	target := strings.ToLower(strings.TrimSpace(source))
+	for index, option := range options {
+		if option == target {
+			return index
+		}
+	}
+	return 0
+}
+
+func selectedIndexes(selected map[int]bool) []int {
+	indexes := make([]int, 0, len(selected))
+	for index := range selected {
+		indexes = append(indexes, index)
+	}
+	sort.Ints(indexes)
+	return indexes
+}
+
+func minInt(a int, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func maxInt(a int, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}

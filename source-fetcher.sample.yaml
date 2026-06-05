@@ -1,0 +1,57 @@
+output_dir: ./downloads
+timeout: 45s
+
+mirrors:
+  npm: huaweicloud
+  choco: chocolatey
+  winget: github-raw
+
+install_defaults:
+  scripts_policy: root
+  allow_scripts:
+    - esbuild
+    - sharp
+
+auth_profiles:
+  private-npm:
+    bearer_token_env: PRIVATE_NPM_TOKEN
+    headers:
+      X-Registry: internal
+
+downloads:
+  - source: npm
+    name: react
+    version: latest
+    resume: true
+    chunks: 4
+
+  - source: choco
+    name: git
+    version: 2.47.0
+
+  - source: winget
+    id: Microsoft.PowerToys
+    arch: x64
+
+  - source: url
+    url: https://example.com/file.zip
+    output_dir: ./downloads/direct
+    auth: private-npm
+    resume: true
+
+installs:
+  - source: npm
+    name: react
+    version: ^19
+    output_dir: ./workspace
+    include_peer: true
+    lockfile: ./workspace/source-fetcher-install.lock.json
+    scripts_policy: root
+
+  - source: npm
+    name: internal-lib
+    version: ^1
+    auth: private-npm
+    output_dir: ./workspace/private
+    omit_optional: true
+    frozen_lockfile: false
