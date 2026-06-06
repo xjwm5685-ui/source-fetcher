@@ -170,5 +170,12 @@ Write-Host "  $installDir\uninstall.ps1"
 Write-Host ""
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor DarkGray
 Write-Host ""
-Write-ColorOutput "💡 提示: 请重新启动终端以刷新环境变量" "Yellow"
+Write-ColorOutput "💡 刷新环境变量的方式：" "Yellow"
+Write-Host ""
+Write-ColorOutput "方式一（推荐）：关闭并重新打开终端" "White"
+Write-Host ""
+Write-ColorOutput "方式二：在当前终端运行：" "White"
+Write-Host "  . .\refresh-env.ps1" -ForegroundColor Cyan
+Write-Host "  # 或者"
+Write-Host "  `$env:Path = [System.Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [System.Environment]::GetEnvironmentVariable('Path','User')" -ForegroundColor Cyan
 Write-Host ""

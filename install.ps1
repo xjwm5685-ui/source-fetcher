@@ -307,7 +307,16 @@ function Show-Usage {
     Write-Host ""
     Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor DarkGray
     Write-Host ""
-    Write-ColorOutput "💡 提示: 请重新启动终端或运行 'refreshenv' 以刷新环境变量" "Yellow"
+    Write-ColorOutput "💡 如何刷新环境变量：" "Yellow"
+    Write-Host ""
+    Write-ColorOutput "  方式一（推荐）：" "Cyan"
+    Write-Host "    关闭当前终端，重新打开新的终端窗口"
+    Write-Host ""
+    Write-ColorOutput "  方式二（在当前终端立即生效）：" "Cyan"
+    Write-Host "    运行以下命令："
+    Write-Host "    `$env:Path = [System.Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [System.Environment]::GetEnvironmentVariable('Path','User')" -ForegroundColor White
+    Write-Host ""
+    Write-Host "    然后就可以使用 'sfer' 命令了"
     Write-Host ""
 }
 

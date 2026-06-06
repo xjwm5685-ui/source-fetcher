@@ -132,7 +132,7 @@ try {
 Write-Host ""
 Write-Status "Pushing tags..." "Info"
 try {
-    git push origin v1.0.0 2>&1 | Out-Host
+    git push origin v1.1.1 2>&1 | Out-Host
     
     if ($LASTEXITCODE -eq 0) {
         Write-Status "Tag v1.0.0 pushed successfully!" "Success"

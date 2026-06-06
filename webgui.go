@@ -638,25 +638,20 @@ func (s *WebGUIServer) executeDownload(ctx context.Context, task *QueueTask) err
 func (s *WebGUIServer) executeInstall(ctx context.Context, task *QueueTask) error {
 	result := task.Result
 	
-	// 只支持 npm 安装
-	if result.Source != "npm" {
-		return fmt.Errorf("install is only supported for npm packages, got: %s", result.Source)
-	}
-	
 	// 调试日志
 	log.Printf("Executing install: Source=%s, Identifier=%s, Version=%s", 
 		result.Source, result.Identifier, result.Version)
 	
 	// 构建安装请求
 	req := InstallRequest{
-		Source:    "npm",
+		Source:    result.Source,
 		Name:      result.Identifier,
 		Version:   result.Version,
 		OutputDir: ".",
 	}
 	
-	log.Printf("InstallRequest: Name=%s, Version=%s, OutputDir=%s", 
-		req.Name, req.Version, req.OutputDir)
+	log.Printf("InstallRequest: Source=%s, Name=%s, Version=%s, OutputDir=%s", 
+		req.Source, req.Name, req.Version, req.OutputDir)
 	
 	// 解析安装计划
 	plan, err := resolveInstallPlan(ctx, s.httpClient, req)
@@ -664,10 +659,22 @@ func (s *WebGUIServer) executeInstall(ctx context.Context, task *QueueTask) erro
 		return fmt.Errorf("failed to resolve install plan: %w", err)
 	}
 	
-	// 执行安装
-	_, err = executeInstallPlan(ctx, s.httpClient, plan, DownloadOptions{
-		OutputDir: ".",
-	})
+	// 根据源类型执行安装
+	switch result.Source {
+	case "npm":
+		// npm 使用完整的依赖安装
+		_, err = executeInstallPlan(ctx, s.httpClient, plan, DownloadOptions{
+			OutputDir: ".",
+		})
+	case "choco", "winget", "cargo":
+		// 原生安装（choco、winget、cargo）
+		_, err = executeNativeInstallPlan(ctx, s.httpClient, plan, DownloadOptions{
+			OutputDir: ".",
+		})
+	default:
+		return fmt.Errorf("install is not supported for source: %s (only npm, cargo, choco, winget are supported)", result.Source)
+	}
+	
 	if err != nil {
 		return fmt.Errorf("failed to install: %w", err)
 	}

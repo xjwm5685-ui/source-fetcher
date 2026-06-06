@@ -582,20 +582,30 @@ async function handleInstall() {
         return;
     }
     
-    // 检查是否有非 npm 包
-    const nonNpmPackages = [];
+    // 检查包源支持情况
+    const supportedSources = ['npm', 'cargo', 'choco', 'winget'];
+    const unsupportedPackages = [];
+    const supportedPackages = [];
+    
     indexes.forEach(idx => {
         if (idx >= 0 && idx < searchResults.length) {
             const result = searchResults[idx];
-            if (result.Source !== 'npm') {
-                nonNpmPackages.push(`${result.Identifier} (${result.Source})`);
+            if (supportedSources.includes(result.Source)) {
+                supportedPackages.push(result);
+            } else {
+                unsupportedPackages.push(`${result.Identifier} (${result.Source})`);
             }
         }
     });
     
-    // 如果有非 npm 包，警告用户
-    if (nonNpmPackages.length > 0) {
-        const message = `Warning: The following packages cannot be installed via Web UI (only npm is supported):\n\n${nonNpmPackages.join('\n')}\n\nOnly npm packages will be added to the queue.`;
+    // 如果有不支持的包，警告用户
+    if (unsupportedPackages.length > 0) {
+        const message = `⚠️ The following packages cannot be installed:\n\n${unsupportedPackages.join('\n')}\n\nOnly npm, cargo, choco, and winget packages are supported.\n\n${supportedPackages.length > 0 ? 'Continue with supported packages?' : ''}`;
+        
+        if (supportedPackages.length === 0) {
+            showToast(message, 'warning', 5000);
+            return;
+        }
         
         if (!confirm(message)) {
             return;
@@ -618,7 +628,8 @@ async function handleInstall() {
         if (data.success) {
             const addedCount = data.added || 0;
             if (addedCount > 0) {
-                showStatus(`Added ${addedCount} package(s) to install queue`, 'success');
+                const sourceInfo = supportedPackages.length > 1 ? 'packages' : `${supportedPackages[0].Source} package`;
+                showStatus(`Added ${addedCount} ${sourceInfo} to install queue`, 'success');
                 showToast(`✅ Added ${addedCount} package(s) to install queue`, 'success');
                 selectedIndexes.clear();
                 renderResults();
@@ -626,9 +637,9 @@ async function handleInstall() {
                 
                 // Switch to queue tab
                 setTimeout(() => switchTab('queue'), 500);
-            } else if (nonNpmPackages.length > 0) {
-                showStatus('No npm packages selected', 'warning');
-                showToast('⚠️ Only npm packages can be installed', 'warning');
+            } else if (unsupportedPackages.length > 0) {
+                showStatus('No supported packages selected', 'warning');
+                showToast('⚠️ No installable packages selected', 'warning');
             }
         } else {
             throw new Error(data.error || 'Failed to add to queue');
@@ -704,6 +715,11 @@ function renderQueue() {
                 errorMsg = '⏱️ Request timeout. Please check your network connection.';
             } else if (errorMsg.includes('network')) {
                 errorMsg = '🌐 Network error. Please check your internet connection.';
+            } else if (errorMsg.includes('install is not supported for source')) {
+                // 提取源名称
+                const match = errorMsg.match(/source: (\w+)/);
+                const source = match ? match[1] : 'this source';
+                errorMsg = `⚠️ Installation not supported for ${source}. Supported sources: npm, cargo, choco, winget.`;
             } else if (errorMsg.includes('only supported for npm')) {
                 errorMsg = '⚠️ This package source does not support installation via Web UI. Only npm packages can be installed.';
             } else {
