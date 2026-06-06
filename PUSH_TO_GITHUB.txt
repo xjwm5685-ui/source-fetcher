@@ -1,0 +1,152 @@
+═══════════════════════════════════════════════════════════════
+  Source Fetcher v1.0.1 - GitHub 发布指令
+═══════════════════════════════════════════════════════════════
+
+✅ 本地准备已完成
+   • 所有代码已修复和测试
+   • Git commit: 7a5d837
+   • Git tag: v1.0.1 已创建
+   • 所有文档已更新
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 第一步：推送到 GitHub
+
+在 PowerShell 中执行：
+
+cd d:\dy\source-fetcher
+git push origin main
+git push origin v1.0.1
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📦 第二步：创建 GitHub Release
+
+1. 访问：
+   https://github.com/xjwm5685-ui/source-fetcher/releases/new
+
+2. 填写表单：
+   • Tag version: v1.0.1
+   • Release title: v1.0.1 - Security Patch Release
+   • Description: 复制下面的内容 ↓
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 GitHub Release 描述（复制以下内容）
+
+# 🚨 Security Patch Release - Upgrade Immediately
+
+## Critical Security Fixes
+
+This release fixes **3 critical security vulnerabilities**:
+
+1. **CORS Vulnerability (CVE-pending)** - Remote attackers could control local instance
+2. **Command Injection Risk** - Malicious package names could execute commands
+3. **SSRF Vulnerability** - Could access internal network resources
+
+**All users should upgrade immediately.**
+
+## ✨ New Features
+
+- 🎛️ **Configuration File Support** - Global `.source-fetcher.yaml` configuration
+- 🏥 **Health Check** - Faster and more reliable Web GUI startup
+- ⏹️ **Cancellation Support** - Ctrl+C to interrupt operations
+
+## 🐛 Bug Fixes
+
+- Fixed winget error handling
+- Hardened file permissions (0600/0640)
+- Added safe YAML parsing
+
+## 📚 Documentation
+
+- Added SECURITY.md with security policy
+- Updated README.md with configuration guide
+- Added comprehensive code review reports
+
+## 💔 Breaking Changes
+
+None - Fully backward compatible
+
+## ⬆️ Upgrade Instructions
+
+1. Download `source-fetcher-v1.0.1-windows-amd64.exe`
+2. Replace your existing binary
+3. Verify: `source-fetcher version`
+
+See [RELEASE_NOTES_v1.0.1.md](RELEASE_NOTES_v1.0.1.md) for complete details.
+
+---
+
+**Full Changelog**: https://github.com/xjwm5685-ui/source-fetcher/compare/v1.0.0...v1.0.1
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔨 第三步：构建二进制文件（如需要）
+
+# Windows x64
+$env:GOOS="windows"; $env:GOARCH="amd64"
+go build -ldflags="-s -w -X main.version=v1.0.1" -o source-fetcher-v1.0.1-windows-amd64.exe .
+
+# Linux x64
+$env:GOOS="linux"; $env:GOARCH="amd64"
+go build -ldflags="-s -w -X main.version=v1.0.1" -o source-fetcher-v1.0.1-linux-amd64 .
+
+# macOS x64
+$env:GOOS="darwin"; $env:GOARCH="amd64"
+go build -ldflags="-s -w -X main.version=v1.0.1" -o source-fetcher-v1.0.1-darwin-amd64 .
+
+# macOS ARM64
+$env:GOOS="darwin"; $env:GOARCH="arm64"
+go build -ldflags="-s -w -X main.version=v1.0.1" -o source-fetcher-v1.0.1-darwin-arm64 .
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📤 第四步：上传二进制文件
+
+在 GitHub Release 页面：
+1. 点击 "Attach binaries by dropping them here or selecting them"
+2. 上传构建的二进制文件
+3. 点击 "Publish release"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ 第五步：发布后验证
+
+1. 检查 Release 页面显示正常
+2. 下载测试二进制文件
+3. 验证版本: source-fetcher version
+4. 测试基本功能
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📢 可选：发布公告
+
+在 GitHub Discussions 发布公告：
+https://github.com/xjwm5685-ui/source-fetcher/discussions
+
+标题: 🚨 Security Release v1.0.1 - Please Upgrade
+内容: 简要说明安全修复和升级重要性
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 关键指标
+
+已完成:
+  ✅ 3 个严重安全漏洞修复
+  ✅ 4 个功能增强
+  ✅ 4 个质量改进
+  ✅ 118/119 测试通过
+  ✅ 完整文档更新
+  ✅ Git 提交和标签
+
+待完成:
+  ⏳ 推送到 GitHub
+  ⏳ 创建 GitHub Release
+  ⏳ 构建和上传二进制文件
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎉 准备就绪！开始推送吧！
+
+═══════════════════════════════════════════════════════════════

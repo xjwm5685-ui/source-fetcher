@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Cargo install support**: Download and extract .crate source packages without Rust toolchain
 - Configuration file support (`.source-fetcher.yaml`)
 - Global configuration example (`.source-fetcher.example.yaml`)
 - Unified uninstall system for choco/winget/url (v1.1.0)

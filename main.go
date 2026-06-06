@@ -210,7 +210,7 @@ func runInstall(args []string) error {
 	fs := flag.NewFlagSet("install", flag.ContinueOnError)
 	fs.SetOutput(os.Stdout)
 
-	source := fs.String("source", "npm", "source to install: npm, choco, winget")
+	source := fs.String("source", "npm", "source to install: npm, choco, winget, cargo")
 	name := fs.String("name", "", "package name (npm/choco) or package ID (winget)")
 	versionFlag := fs.String("version", "", "package version, tag, or range")
 	outputDir := fs.String("output", ".", "install root directory")
@@ -309,7 +309,7 @@ func runInstall(args []string) error {
 			Chunks:         *chunks,
 			RequestOptions: requestOptions,
 		})
-	case "choco", "winget":
+	case "choco", "winget", "cargo":
 		result, err = executeNativeInstallPlan(ctx, client, plan, DownloadOptions{
 			OutputDir:      absOutput,
 			Resume:         *resume,

@@ -255,10 +255,10 @@ func resolveInstallPlan(ctx context.Context, client *http.Client, req InstallReq
 	case "", "npm":
 		req.Source = "npm"
 		return resolveNPMInstallPlan(ctx, client, req)
-	case "choco", "winget":
+	case "choco", "winget", "cargo":
 		return resolveNativeInstallPlan(ctx, client, req)
 	default:
-		return InstallPlan{}, fmt.Errorf("install currently supports: npm, choco, winget")
+		return InstallPlan{}, fmt.Errorf("install currently supports: npm, choco, winget, cargo")
 	}
 }
 

@@ -15,6 +15,14 @@
 [![Downloads](https://img.shields.io/github/downloads/xjwm5685-ui/source-fetcher/total)](https://github.com/xjwm5685-ui/source-fetcher/releases)
 [![Stars](https://img.shields.io/github/stars/xjwm5685-ui/source-fetcher?style=social)](https://github.com/xjwm5685-ui/source-fetcher/stargazers)
 
+### ⚡ 一行命令，快速安装
+
+```powershell
+irm https://raw.githubusercontent.com/xjwm5685-ui/source-fetcher/main/install.ps1 | iex
+```
+
+[📖 查看完整安装指南](./INSTALLATION.md) | [🚀 快速开始](./QUICK_START.md)
+
 </div>
 
 ---
@@ -103,9 +111,53 @@ sfer tui
 
 ## 快速安装（推荐）
 
+### 一键安装脚本 🚀
+
+**Windows PowerShell** (推荐):
+
+```powershell
+irm https://raw.githubusercontent.com/xjwm5685-ui/source-fetcher/main/install.ps1 | iex
+```
+
+安装完成后直接使用 `sfer` 命令：
+
+```powershell
+sfer version
+sfer search --source npm --query react
+sfer gui
+```
+
+### 手动安装
+
+如果一键安装失败，可以手动安装：
+
+1. 从 [Releases](https://github.com/xjwm5685-ui/source-fetcher/releases) 下载最新版本
+2. 解压到任意目录
+3. 将目录添加到 PATH 环境变量
+
+### 本地构建
+
+```powershell
+# 克隆仓库
+git clone https://github.com/xjwm5685-ui/source-fetcher.git
+cd source-fetcher
+
+# 编译
+go build -o source-fetcher.exe
+
+# 本地安装（可选）
+.\install-local.ps1
+```
+
+## 快速安装（推荐）
+
 安装全局别名 `sfer`，在任何目录都可使用：
 
 ```powershell
+# 方式一：使用一键安装脚本（推荐）
+irm https://raw.githubusercontent.com/xjwm5685-ui/source-fetcher/main/install.ps1 | iex
+
+# 方式二：使用原有的别名安装脚本
 # 在 source-fetcher 目录运行
 .\install-alias.ps1
 
@@ -115,9 +167,13 @@ sfer mirrors --source npm
 sfer search --source npm --query react
 ```
 
-卸载别名：
+卸载：
 
 ```powershell
+# 方式一：一键安装的卸载方式
+$env:LOCALAPPDATA\source-fetcher\uninstall.ps1
+
+# 方式二：原有别名的卸载方式
 .\install-alias.ps1 -Uninstall
 ```
 
@@ -304,10 +360,10 @@ install_defaults:
 
 - `npm`：搜索、下载、安装、卸载、修复
 - `pip`：搜索、下载
-- `cargo`：搜索、下载
+- `cargo`：搜索、下载、安装（源码解压）⭐ 新功能
 - `maven`：搜索、下载
-- `choco`：搜索、下载
-- `winget`：搜索、下载、安装器枚举
+- `choco`：搜索、下载、自动安装
+- `winget`：搜索、下载、安装器枚举、自动安装
 - `url`：直链下载
 
 ## 运行方式
@@ -465,7 +521,7 @@ sfer download --source winget --id Microsoft.PowerToys --resolve-only
 
 ## 依赖安装
 
-`install` 命令支持 **npm**、**choco**、**winget** 三种源。
+`install` 命令支持 **npm**、**choco**、**winget**、**cargo** 四种源。
 
 ### npm 安装（完整依赖管理）
 
@@ -514,10 +570,30 @@ sfer install --source winget --name Microsoft.PowerToys --plan
 
 **注意**：某些安装器需要管理员权限。
 
+### cargo 自动安装 ⭐ 新功能
+
+```powershell
+# 安装最新版本（无需安装 Rust）
+sfer install --source cargo --name serde
+
+# 安装指定版本
+sfer install --source cargo --name tokio --version 1.35.0
+
+# 查看安装计划
+sfer install --source cargo --name ripgrep --plan
+```
+
+**注意**：
+- 无需安装 Rust 或 Cargo 工具链
+- 直接下载并解压 .crate 源码包到本地
+- 解压后的源码可用于查看、学习或手动编译
+- 如需编译二进制，解压后仍需安装 Rust 工具链并运行 `cargo build`
+
 说明：`install` 会按参数控制递归解析 `dependencies`、`optionalDependencies`、`peerDependencies` 和根包 `devDependencies`，先把 tarball 下载到输出目录下的 `.source-fetcher\tarballs` 缓存，再解包到 `.source-fetcher\store`，最后按 npm 规则组装到 `node_modules`、生成 `node_modules\.bin`，并写出 `source-fetcher-install.json` 与 `source-fetcher-install.lock.json`。
 说明：传 `--frozen-lockfile` 时会优先要求 lockfile 与当前请求匹配；匹配成功则直接按 lockfile 解析，不再请求 registry。
 说明：传 `--scripts none|root|all` 可控制是否执行 `preinstall/install/postinstall` 生命周期脚本，默认 `none`。
 说明：传 `--allow-scripts esbuild,sharp` 可对白名单包放开被默认拦截的 `preinstall`；若同时使用 `source-fetcher.yaml` 里的 `install_defaults.allow_scripts`，CLI 参数会覆盖 YAML，而不是合并。
+说明：对于 **cargo**，`install` 命令会下载 .crate 源码包并解压到 `<output>/cargo-crates/<name>-<version>` 目录，无需安装 Rust 工具链即可获取源代码。
 
 卸载已安装内容：
 
