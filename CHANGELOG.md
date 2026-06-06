@@ -7,30 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+<!-- Future changes will be documented here -->
+
+## [1.1.0] - 2026-06-06
+
 ### Added
-- **Cargo install support**: Download and extract .crate source packages without Rust toolchain
-- Configuration file support (`.source-fetcher.yaml`)
-- Global configuration example (`.source-fetcher.example.yaml`)
-- Unified uninstall system for choco/winget/url (v1.1.0)
-- URL dependency tracking and installation (v1.1.0)
-- Context propagation for cancellable uninstall operations
-- Health check mechanism for Web GUI startup
-- Package name input validation (security)
-- SSRF protection for URL dependencies (security)
-- Manifest version compatibility checking
+- **⭐ Cargo install support**: Download and extract .crate source packages without Rust toolchain required
+- **⭐ One-line installation script** (`install.ps1`) for quick setup, similar to popular tools like rustup
+- **⭐ Web GUI support** for cargo/choco/winget package installation (previously only npm was supported)
+- Local installation script (`install-local.ps1`) for offline scenarios and development
+- Environment variable refresh script (`refresh-env.ps1`) for PATH updates
+- Comprehensive documentation system with 11+ detailed guides
+- Smart package source detection and filtering in Web GUI
+- Friendly error messages in Web GUI queue display
 
-### Changed
-- CORS configuration now restricts to localhost origins only (security fix)
-- YAML parsing now uses explicit safe unmarshaling
-- File permissions hardened (0644 → 0600/0640) for sensitive files
-- Web GUI startup uses health check instead of fixed delay
-- winget uninstall error handling now distinguishes benign exit codes
+### Improved
+- Web GUI now supports multiple package sources (npm, cargo, choco, winget) for installation
+- Backend `executeInstall()` uses switch statement to handle different package sources
+- Frontend `handleInstall()` checks supported sources before installation
+- Error messages are more user-friendly and informative
 
-### Security
-- **CRITICAL**: Fixed CORS configuration to prevent CSRF attacks
-- **CRITICAL**: Added input validation to prevent command injection
-- **CRITICAL**: Implemented SSRF protection blocking private IP ranges
-- Hardened file permissions for manifest and tracking files
+### Documentation
+- Added `CARGO_INSTALL_GUIDE.md` - Comprehensive Cargo installation user guide
+- Added `CARGO_FEATURE_SUMMARY.md` - Technical implementation summary of Cargo feature
+- Added `WEBGUI_CARGO_SUPPORT.md` - Web GUI multi-source support documentation
+- Added `INSTALLATION.md` - Complete installation guide with multiple methods
+- Added `QUICK_INSTALL.md` - Quick start guide for impatient users
+- Added `ONE_LINE_INSTALL_SUMMARY.md` - Implementation summary of one-line installation
+- Added `POST_INSTALL_GUIDE.md` - Post-installation guide and troubleshooting
+- Added `PROJECT_STATUS.md` - Comprehensive project status report
+- Added `NEXT_STEPS.md` - Detailed next steps and development guide
+- Added `CONTINUATION_SUMMARY.md` - Conversation continuation summary
+- Added `DOCUMENTS_CREATED.md` - Documentation index and quick reference
 
 ## [1.0.1] - 2026-06-06
 
