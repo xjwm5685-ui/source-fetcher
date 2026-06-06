@@ -1,231 +1,475 @@
-# 🚀 下一步行动清单
+# 下一步操作指南
 
-快速检查清单 - 发布前最后步骤
+## 🎯 立即执行的任务
 
----
+### 1. 发布到 GitHub Release ⭐ 最重要
 
-## ⚡ 快速检查
+你的一键安装脚本需要从 GitHub Releases 下载二进制文件，所以这是**最优先**的任务。
 
-运行健康检查脚本：
+#### 步骤 A: 编译可执行文件
 
 ```powershell
-.\quick-check.ps1
+# 确保在项目根目录
+cd d:\dy\source-fetcher
+
+# 创建 dist 目录
+mkdir -Force dist
+
+# 编译 Windows x64 版本
+go build -ldflags="-s -w" -o dist/source-fetcher-windows-amd64.exe
+
+# 编译 Windows x86 版本
+$env:GOARCH="386"
+go build -ldflags="-s -w" -o dist/source-fetcher-windows-386.exe
+$env:GOARCH="amd64"  # 恢复
 ```
 
-或详细模式：
+#### 步骤 B: 推送代码到 GitHub
 
 ```powershell
-.\quick-check.ps1 -Verbose
+# 检查当前状态
+git status
+
+# 添加所有新文件
+git add .
+
+# 提交
+git commit -m "feat: add cargo install support and one-line installation
+
+- Add cargo package installation without Rust toolchain
+- Add one-line PowerShell installation script
+- Add Web GUI support for cargo/choco/winget installation
+- Update documentation with comprehensive guides
+
+Version: 1.1.0"
+
+# 推送到 main 分支
+git push origin main
 ```
 
----
+#### 步骤 C: 创建 GitHub Release
 
-## 📝 必须完成（3 项）
+1. **访问 GitHub 仓库**
+   ```
+   https://github.com/YOUR_USERNAME/source-fetcher/releases/new
+   ```
 
-### 1. 替换所有占位符 🔴
+2. **创建新 Release**
+   - Tag: `v1.1.0`
+   - Release title: `v1.1.0 - Cargo Install Support & One-Line Installation`
+   - Description:
 
-**查找并替换**：`YOUR_USERNAME` → 你的 GitHub 用户名
+```markdown
+## 🎉 主要更新
 
-受影响的文件：
-- `README.md` (约 10 处)
-- `README.en.md` (约 10 处)
-- `examples/ci-cd-integration.yaml` (3 处)
+### 新功能
 
-**快速替换命令**：
+#### ⭐ Cargo 包安装（无需 Rust 工具链）
+- 直接下载并解压 .crate 源码包
+- 支持最新版本和指定版本
+- 集成到 CLI 和 Web GUI
+
+#### ⭐ 一键安装脚本
 ```powershell
-# PowerShell 批量替换
-$files = @("README.md", "README.en.md", "examples\ci-cd-integration.yaml")
-foreach ($file in $files) {
-    (Get-Content $file) -replace 'YOUR_USERNAME', 'your-actual-username' | Set-Content $file
+irm https://raw.githubusercontent.com/YOUR_USERNAME/source-fetcher/main/install.ps1 | iex
+```
+
+#### ⭐ Web GUI 多源支持
+- npm, cargo, choco, winget 全部支持安装
+- 智能包源检查和错误提示
+- 批量操作和实时队列更新
+
+### 改进
+- 📝 完善的文档系统
+- 🔒 安全性增强
+- 🎨 更好的用户体验
+
+### 安装方式
+
+**一键安装（推荐）**:
+```powershell
+irm https://raw.githubusercontent.com/YOUR_USERNAME/source-fetcher/main/install.ps1 | iex
+```
+
+**手动下载**:
+下载下方的可执行文件，解压后运行 `install-local.ps1`
+
+### 完整更新日志
+见 [CHANGELOG.md](https://github.com/YOUR_USERNAME/source-fetcher/blob/main/CHANGELOG.md)
+```
+
+3. **上传文件**
+   - 上传 `dist/source-fetcher-windows-amd64.exe`
+   - 上传 `dist/source-fetcher-windows-386.exe`
+
+4. **发布 Release**
+
+#### 步骤 D: 测试一键安装
+
+```powershell
+# 在新的 PowerShell 窗口测试
+irm https://raw.githubusercontent.com/YOUR_USERNAME/source-fetcher/main/install.ps1 | iex
+
+# 验证安装
+sfer version
+sfer search --source npm --query react
+sfer gui
+```
+
+### 2. 更新 CHANGELOG.md
+
+将 `[Unreleased]` 部分的内容移到新版本：
+
+```powershell
+# 编辑 CHANGELOG.md
+```
+
+将以下内容：
+
+```markdown
+## [Unreleased]
+
+### Added
+- **Cargo install support**: Download and extract .crate source packages without Rust toolchain
+- One-line installation script (`install.ps1`)
+- Web GUI support for cargo/choco/winget installation
+...
+```
+
+改为：
+
+```markdown
+## [Unreleased]
+
+<!-- 未来的更新 -->
+
+## [1.1.0] - 2026-06-06
+
+### Added
+- **⭐ Cargo install support**: Download and extract .crate source packages without Rust toolchain
+- **⭐ One-line installation script** (`install.ps1`) for quick setup
+- **⭐ Web GUI support** for cargo/choco/winget package installation
+- Comprehensive documentation (INSTALLATION.md, QUICK_INSTALL.md, etc.)
+- Local installation script (`install-local.ps1`) for offline scenarios
+- Environment variable refresh script (`refresh-env.ps1`)
+
+### Improved
+- Web GUI now supports multiple package sources (npm, cargo, choco, winget)
+- Better error messages in Web GUI queue display
+- Smart package source detection and filtering
+- Enhanced installation guides
+
+### Documentation
+- Added CARGO_INSTALL_GUIDE.md - Cargo installation user guide
+- Added CARGO_FEATURE_SUMMARY.md - Technical implementation summary
+- Added WEBGUI_CARGO_SUPPORT.md - Web GUI update documentation
+- Added INSTALLATION.md - Complete installation guide
+- Added QUICK_INSTALL.md - Quick start guide
+- Added ONE_LINE_INSTALL_SUMMARY.md - Implementation summary
+- Added POST_INSTALL_GUIDE.md - Post-installation guide
+- Added PROJECT_STATUS.md - Project status report
+- Added NEXT_STEPS.md - Next steps guide
+
+## [1.0.1] - 2026-06-06
+...
+```
+
+### 3. 更新 README.md 中的链接
+
+确保 README 中的链接指向正确的 GitHub 仓库：
+
+```powershell
+# 搜索并替换（使用编辑器）
+# 查找: YOUR_USERNAME
+# 替换为: 你的 GitHub 用户名
+
+# 查找: xjwm5685-ui
+# 如果不是你的用户名，替换为正确的用户名
+```
+
+## 📋 完成后的验证清单
+
+### 发布验证
+
+- [ ] GitHub Release 已创建
+- [ ] 二进制文件已上传
+- [ ] Release 描述清晰完整
+- [ ] Tag 版本号正确 (v1.1.0)
+
+### 安装验证
+
+- [ ] 一键安装脚本可以运行
+- [ ] 从 GitHub 下载成功
+- [ ] `sfer` 命令可用
+- [ ] 环境变量配置正确
+
+### 功能验证
+
+```powershell
+# CLI 测试
+sfer version
+sfer search --source npm --query react
+sfer download --source cargo --name serde
+sfer install --source cargo --name tokio --plan
+
+# GUI 测试
+sfer gui
+# 在浏览器中测试搜索、下载、安装功能
+```
+
+### 文档验证
+
+- [ ] CHANGELOG.md 更新正确
+- [ ] README.md 链接有效
+- [ ] 所有文档无明显错误
+
+## 🚀 可选的后续任务
+
+### 短期改进
+
+#### 1. 添加自动更新功能
+
+创建 `update.go` 文件实现 `sfer update` 命令：
+
+```go
+// update.go
+package main
+
+import (
+    "context"
+    "fmt"
+)
+
+func runUpdate(args []string) error {
+    // 1. 获取最新版本
+    // 2. 比较当前版本
+    // 3. 下载新版本
+    // 4. 替换可执行文件
+    // 5. 显示更新日志
+    
+    fmt.Println("Checking for updates...")
+    fmt.Println("You are using the latest version: 1.1.0")
+    return nil
 }
 ```
 
-### 2. 创建 Logo 🎨
+#### 2. 改进 Web GUI
 
-**需要**：`assets/logo.png`
+- 添加包详情页面
+- 添加下载历史记录
+- 添加设置页面
+- 支持深色/浅色主题切换
 
-**规格**：
-- 尺寸：512x512px 或更大
-- 格式：PNG（透明背景）
-- 风格：简洁、现代
+#### 3. 性能优化
 
-**设计工具推荐**：
-- 在线：Canva, Figma, Adobe Express
-- 本地：GIMP, Inkscape, Adobe Illustrator
-- AI 生成：DALL-E, Midjourney, Stable Diffusion
+```powershell
+# 添加性能测试
+go test -bench=. -benchmem
 
-**临时方案**（如果暂时没有）：
+# 分析 CPU 使用
+go test -cpuprofile=cpu.prof
+go tool pprof cpu.prof
+
+# 分析内存使用
+go test -memprofile=mem.prof
+go tool pprof mem.prof
+```
+
+### 中期目标
+
+#### 4. Linux/macOS 支持
+
+创建 `install.sh`:
+
+```bash
+#!/bin/bash
+# Source Fetcher Installation Script for Linux/macOS
+
+REPO_OWNER="YOUR_USERNAME"
+REPO_NAME="source-fetcher"
+APP_NAME="source-fetcher"
+
+# Detect OS and architecture
+OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+ARCH=$(uname -m)
+
+# Download and install
+# ...
+```
+
+#### 5. 创建 GitHub Actions CI/CD
+
+创建 `.github/workflows/release.yml`:
+
+```yaml
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+      
+      - name: Build
+        run: |
+          go build -ldflags="-s -w" -o dist/source-fetcher-windows-amd64.exe
+          $env:GOARCH="386"
+          go build -ldflags="-s -w" -o dist/source-fetcher-windows-386.exe
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/*
+```
+
+## 💡 使用技巧
+
+### 快速开发测试
+
+```powershell
+# 监控文件变化并自动编译（需要安装 watchexec）
+watchexec -e go -r go build
+
+# 或使用 air 进行热重载
+go install github.com/cosmtrek/air@latest
+air
+
+# 快速测试安装
+.\install-local.ps1
+& "$env:LOCALAPPDATA\source-fetcher\uninstall.ps1"
+.\install-local.ps1
+```
+
+### 调试技巧
+
+```powershell
+# 启用详细输出
+$env:SFER_DEBUG="1"
+sfer gui
+
+# 查看 HTTP 请求
+$env:SFER_HTTP_DEBUG="1"
+sfer search --source npm --query react
+
+# 查看 Web GUI 日志
+sfer gui --verbose
+```
+
+## 📚 参考资源
+
+### 学习资源
+
+- [Go 官方文档](https://go.dev/doc/)
+- [PowerShell 文档](https://docs.microsoft.com/powershell/)
+- [GitHub Actions 文档](https://docs.github.com/actions)
+
+### 类似项目
+
+- [rustup](https://github.com/rust-lang/rustup) - Rust 工具链安装器
+- [nvm](https://github.com/nvm-sh/nvm) - Node.js 版本管理
+- [scoop](https://github.com/ScoopInstaller/Scoop) - Windows 包管理器
+
+## 🎓 最佳实践
+
+### Git 提交规范
+
+```
+feat: 新功能
+fix: 修复 bug
+docs: 文档更新
+style: 代码格式
+refactor: 重构
+test: 测试
+chore: 构建/工具
+
+示例:
+feat: add cargo install support
+fix: resolve CORS security issue
+docs: update installation guide
+```
+
+### 版本发布流程
+
+1. 更新版本号
+2. 更新 CHANGELOG
+3. 提交代码
+4. 创建 Git Tag
+5. 推送 Tag
+6. GitHub 自动构建 Release
+7. 测试发布版本
+8. 公告新版本
+
+## ✅ 快速检查清单
+
+使用这个清单确保一切就绪：
+
 ```markdown
-# 在 README.md 中注释掉 Logo 行
-# ![Source Fetcher Logo](./assets/logo.png)
+## 发布前检查
+
+- [ ] 代码已提交到 GitHub
+- [ ] 版本号已更新
+- [ ] CHANGELOG 已更新
+- [ ] 文档已审核
+- [ ] 编译通过
+- [ ] 测试通过
+- [ ] GitHub Release 已创建
+- [ ] 二进制文件已上传
+- [ ] 一键安装脚本可用
+- [ ] 安装验证通过
+- [ ] 功能验证通过
+
+## 发布后
+
+- [ ] 在 GitHub 添加 Release 公告
+- [ ] 更新项目网站（如有）
+- [ ] 社交媒体发布（可选）
+- [ ] 收集用户反馈
+- [ ] 规划下一个版本
 ```
 
-### 3. 初始化 Git 并推送 📤
+## 🆘 遇到问题？
 
-```powershell
-# 1. 初始化（如果还没有）
-git init
-git branch -M main
+### 常见问题
 
-# 2. 添加远程仓库
-# 先在 GitHub 上创建 source-fetcher 仓库
-git remote add origin https://github.com/YOUR_USERNAME/source-fetcher.git
+**Q: 一键安装显示 404 错误**
+A: 确保 GitHub Release 已创建，并且文件名匹配脚本中的命名
 
-# 3. 添加所有文件
-git add .
+**Q: sfer 命令不可用**
+A: 重启终端，或运行 `.\refresh-env.ps1`
 
-# 4. 创建初始提交
-git commit -m "feat: initial release v1.0.0"
+**Q: Web GUI 无法启动**
+A: 检查端口是否被占用，尝试 `sfer gui --port 8888`
 
-# 5. 推送到 GitHub
-git push -u origin main
+**Q: cargo 安装失败**
+A: 检查网络连接，确保可以访问 crates.io
 
-# 6. 创建标签触发 release
-git tag -a v1.0.0 -m "Release v1.0.0"
-git push origin v1.0.0
-```
+### 获取帮助
 
----
+- 查看文档: `README.md`, `INSTALLATION.md`
+- 查看日志: 启用 debug 模式
+- 提交 Issue: GitHub Issues
+- 参与讨论: GitHub Discussions
 
-## 🎯 推荐完成（2 项）
+## 🎉 完成后
 
-### 4. 录制演示 GIF 📹
+当你完成所有步骤后，你将拥有：
 
-**需要**：`assets/demo.gif`
+✅ 一个功能完整的包管理工具
+✅ 优秀的一键安装体验
+✅ 完善的文档系统
+✅ 专业的 GitHub 仓库
+✅ 活跃的开源项目
 
-**内容**：
-- TUI 界面使用（5-10 秒）
-- 搜索 → 下载 → 进度展示
-
-**工具**：
-- Windows: ScreenToGif, LICEcap
-- 跨平台: peek, asciinema
-
-### 5. 配置 GitHub 仓库 ⚙️
-
-登录 GitHub，进入仓库设置：
-
-**基本设置**：
-- ✅ Description: "Unified package download tool - No native clients required"
-- ✅ Website: 你的文档网站（如果有）
-- ✅ Topics: `package-manager`, `npm`, `chocolatey`, `winget`, `go`, `cli`, `tui`, `download-manager`, `mirror`, `offline`
-
-**功能启用**：
-- ✅ Issues
-- ✅ Discussions（推荐）
-- ✅ Projects（可选）
-- ✅ Wiki（可选）
-
-**Actions**：
-- ✅ 允许所有 Actions
+**恭喜！继续加油！** 🚀
 
 ---
 
-## ✅ 完成检查
-
-运行检查确认一切就绪：
-
-```powershell
-# 运行完整检查
-.\quick-check.ps1 -Verbose
-
-# 构建所有平台
-.\build.ps1 -Platform all -Arch all -Clean
-
-# 运行测试
-go test -v -cover ./...
-```
-
----
-
-## 🎉 发布！
-
-一切就绪后：
-
-```powershell
-# 最后检查
-git status
-
-# 确保在 main 分支
-git branch
-
-# 推送（如果还没有）
-git push origin main
-git push origin v1.0.0
-
-# 前往 GitHub 查看你的项目
-# https://github.com/YOUR_USERNAME/source-fetcher
-```
-
-GitHub Actions 会自动：
-1. 运行所有测试
-2. 构建所有平台的二进制文件
-3. 创建 GitHub Release
-4. 上传二进制文件到 Release
-
----
-
-## 📣 发布后立即行动
-
-### 社交媒体（Day 1）
-
-**Twitter/X**:
-```
-🚀 刚发布了 Source Fetcher v1.0.0！
-
-统一的包管理下载工具：
-✅ 无需安装 npm/choco/winget
-✅ 国内镜像加速
-✅ 离线友好
-✅ TUI/GUI 双界面
-
-GitHub: https://github.com/YOUR_USERNAME/source-fetcher
-
-#golang #packagemanager #opensource #devtools
-```
-
-**Reddit r/golang**:
-标题: `[Release] Source Fetcher v1.0.0 - Unified package download tool`
-
-**V2EX**:
-标题: `[发布] Source Fetcher - 统一的包管理下载工具，无需安装原生客户端`
-
-### 监控和响应（Day 1-7）
-
-- ⏱️ 24 小时内回复所有 Issues
-- ⏱️ 48 小时内回复所有 PRs
-- 👍 感谢所有 Stars 和 Forks
-- 📊 监控下载量和使用情况
-
----
-
-## 📚 详细文档
-
-需要更多信息？查看：
-
-- 📘 [PROJECT_COMPLETION_SUMMARY.md](PROJECT_COMPLETION_SUMMARY.md) - 完整总结
-- 📗 [PRE_LAUNCH_CHECKLIST.md](PRE_LAUNCH_CHECKLIST.md) - 详细清单
-- 📙 [GITHUB_OPTIMIZATION_PLAN.md](GITHUB_OPTIMIZATION_PLAN.md) - 优化计划
-- 📕 [SETUP_GUIDE.md](SETUP_GUIDE.md) - 设置指南
-
----
-
-## 💬 需要帮助？
-
-- 📧 Email: ckkhua89@gmail.com
-- 🐛 Issues: 在 GitHub 创建 Issue
-- 💬 Discussions: 使用 GitHub Discussions
-
----
-
-<div align="center">
-
-**准备好了就发布吧！** 🎉
-
-记住：完美是优秀的敌人。先发布，再迭代！
-
-</div>
-
----
-
-**最后更新**: 2026-06-06
+**提示**: 按照这个指南，你应该能在 1-2 小时内完成 GitHub 发布流程。如果遇到问题，随时查看相关文档或寻求帮助。
