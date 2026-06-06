@@ -1,0 +1,56 @@
+# Source Fetcher 全局配置文件
+# 该文件支持全局设置，可以被命令行参数覆盖
+
+# Web GUI 配置
+gui:
+  # 默认端口
+  port: 8765
+  # 主机地址 (localhost 表示仅本地访问)
+  host: 127.0.0.1
+  # 是否自动打开浏览器
+  auto_open_browser: true
+  # 允许的 CORS Origins (安全起见，仅允许本地)
+  allowed_origins:
+    - http://localhost:8765
+    - http://127.0.0.1:8765
+
+# 下载配置
+download:
+  # 默认输出目录
+  output_dir: "./downloads"
+  # 默认超时时间
+  timeout: "30s"
+  # 默认并发下载块数
+  chunks: 1
+  # 是否启用断点续传
+  resume: true
+
+# 镜像源配置
+mirrors:
+  npm: ""     # 留空使用官方源
+  pip: ""
+  cargo: ""
+  maven: ""
+
+# 日志配置
+logging:
+  # 日志级别: debug, info, warn, error
+  level: "info"
+  # 日志输出: stdout, stderr, file
+  output: "stdout"
+  # 日志文件路径 (仅当 output=file 时使用)
+  file: "./source-fetcher.log"
+
+# 卸载配置
+uninstall:
+  # 是否默认交互式确认
+  interactive: true
+  # 是否保留清单文件
+  keep_manifest: false
+
+# 安全配置
+security:
+  # URL 依赖是否仅允许 HTTPS
+  https_only: false
+  # 是否阻止私有 IP 地址 (SSRF 防护)
+  block_private_ips: true

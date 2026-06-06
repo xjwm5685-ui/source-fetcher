@@ -8,24 +8,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Web GUI with liquid glass design (Apple aesthetic + Vercel clean + Google Material colors)
-- Frontend search result caching for instant repeated searches
-- Search abort controller to cancel previous searches
-- Search duration display in status bar
-- Concurrent package search across all sources (6x faster)
-- Concurrent mirror testing (12x faster)
-- Performance optimization documentation
+- Configuration file support (`.source-fetcher.yaml`)
+- Global configuration example (`.source-fetcher.example.yaml`)
+- Unified uninstall system for choco/winget/url (v1.1.0)
+- URL dependency tracking and installation (v1.1.0)
+- Context propagation for cancellable uninstall operations
+- Health check mechanism for Web GUI startup
+- Package name input validation (security)
+- SSRF protection for URL dependencies (security)
+- Manifest version compatibility checking
 
 ### Changed
-- Search timeout reduced from 30s to 15s for faster failure
-- Mirror test timeout reduced from 30s to 20s
-- Search now runs concurrently across all sources instead of sequentially
-- Mirror testing now runs concurrently for all mirrors
+- CORS configuration now restricts to localhost origins only (security fix)
+- YAML parsing now uses explicit safe unmarshaling
+- File permissions hardened (0644 → 0600/0640) for sensitive files
+- Web GUI startup uses health check instead of fixed delay
+- winget uninstall error handling now distinguishes benign exit codes
 
-### Performance
-- Search all sources: ~18-30s → ~3-5s (6x improvement)
-- Repeated searches: instant (cached)
-- Mirror testing: ~24-36s → ~2-3s (12x improvement)
+### Security
+- **CRITICAL**: Fixed CORS configuration to prevent CSRF attacks
+- **CRITICAL**: Added input validation to prevent command injection
+- **CRITICAL**: Implemented SSRF protection blocking private IP ranges
+- Hardened file permissions for manifest and tracking files
+
+## [1.0.1] - 2026-06-06
+
+### Security
+- Fixed CORS vulnerability allowing arbitrary origins
+- Added package name validation to prevent command injection
+- Implemented SSRF protection for URL dependencies
+- Hardened file permissions for sensitive data
+
+### Fixed
+- winget uninstall now correctly reports actual failures
+- Web GUI startup reliability improved with health checks
+- Context cancellation support for long-running uninstall operations
+
+### Changed
+- YAML parsing explicitly uses safe decoder
+- Manifest loading includes version compatibility check
 
 ## [1.0.0] - 2026-05-31
 

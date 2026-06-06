@@ -57,7 +57,8 @@ func loadBatchConfig(path string) (BatchConfig, error) {
 	if err != nil {
 		return BatchConfig{}, fmt.Errorf("parse config file %s: %w", absPath, err)
 	}
-	if err := yaml.Unmarshal(raw, &cfg); err != nil {
+	// 使用安全的 YAML 解析
+	if err := unmarshalYAMLSafe(raw, &cfg); err != nil {
 		return BatchConfig{}, fmt.Errorf("parse config file %s: %w", absPath, err)
 	}
 	for _, warning := range unknownFieldWarnings {
@@ -324,4 +325,14 @@ func splitYAMLUnknownFieldErrors(err error) ([]string, []string) {
 		remaining = append(remaining, line)
 	}
 	return unknown, remaining
+}
+
+// unmarshalYAMLSafe 安全地解析 YAML（确保禁用不安全特性）
+// gopkg.in/yaml.v3 默认已经禁用了 !!python/object 等不安全标签
+// 但这里明确使用 decoder 以保证一致性和可控性
+func unmarshalYAMLSafe(data []byte, v interface{}) error {
+	decoder := yaml.NewDecoder(bytes.NewReader(data))
+	// KnownFields(false) 允许未知字段，但我们在 collectYAMLUnknownFieldWarnings 中单独处理
+	decoder.KnownFields(false)
+	return decoder.Decode(v)
 }

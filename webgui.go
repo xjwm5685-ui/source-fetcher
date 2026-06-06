@@ -52,14 +52,17 @@ func runGUI(args []string) error {
 	server := NewWebGUIServer(finalPort)
 	
 	// 启动服务器
+	errCh := make(chan error, 1)
 	go func() {
 		if err := server.Start(); err != nil && err != http.ErrServerClosed {
-			log.Printf("Server error: %v", err)
+			errCh <- fmt.Errorf("server start failed: %w", err)
 		}
 	}()
 	
-	// 等待服务器启动
-	time.Sleep(500 * time.Millisecond)
+	// 等待服务器就绪（健康检查）
+	if err := waitForServerReady(finalPort, 3*time.Second); err != nil {
+		return fmt.Errorf("server failed to start: %w", err)
+	}
 	
 	// 构建 URL
 	url := fmt.Sprintf("http://localhost:%d", finalPort)
@@ -176,14 +179,31 @@ func (s *WebGUIServer) securityMiddleware(next http.HandlerFunc) http.HandlerFun
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		
-		// 仅允许同源请求或 localhost（开发环境）
+		// CORS: 仅允许本地 origin（安全限制）
 		origin := r.Header.Get("Origin")
 		if origin != "" {
-			// 在生产环境中，这里应该更严格地验证 origin
-			// 目前允许 localhost 用于开发
-			w.Header().Set("Access-Control-Allow-Origin", origin)
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			allowedOrigins := []string{
+				fmt.Sprintf("http://localhost:%d", s.port),
+				fmt.Sprintf("http://127.0.0.1:%d", s.port),
+			}
+			
+			allowed := false
+			for _, allowedOrigin := range allowedOrigins {
+				if origin == allowedOrigin {
+					allowed = true
+					break
+				}
+			}
+			
+			if allowed {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+				w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
+			} else {
+				http.Error(w, "Origin not allowed", http.StatusForbidden)
+				return
+			}
 		}
 		
 		// 处理 OPTIONS 预检请求
@@ -709,4 +729,31 @@ func findAvailablePort(startPort int) (int, error) {
 		}
 	}
 	return 0, fmt.Errorf("no available port found")
+}
+
+// waitForServerReady 等待服务器就绪（健康检查）
+func waitForServerReady(port int, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	addr := fmt.Sprintf("localhost:%d", port)
+	
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("tcp", addr, 100*time.Millisecond)
+		if err == nil {
+			conn.Close()
+			// 额外验证：尝试 HTTP GET 请求
+			client := &http.Client{Timeout: 500 * time.Millisecond}
+			resp, err := client.Get(fmt.Sprintf("http://localhost:%d/health", port))
+			if err == nil {
+				resp.Body.Close()
+				if resp.StatusCode == http.StatusOK {
+					return nil
+				}
+			}
+			// 即使健康检查失败，TCP 连接成功也认为服务器已启动
+			return nil
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	
+	return fmt.Errorf("server did not start within %v", timeout)
 }

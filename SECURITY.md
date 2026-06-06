@@ -1,210 +1,200 @@
-# Security Policy
+# 🔒 Security Policy
 
-## 🔒 Supported Versions
-
-We release patches for security vulnerabilities in the following versions:
+## Supported Versions
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 1.x.x   | :white_check_mark: |
+| 1.0.1   | :white_check_mark: |
+| 1.0.0   | :x: (Upgrade to 1.0.1) |
 | < 1.0   | :x:                |
 
-## 🐛 Reporting a Vulnerability
+## Security Enhancements in v1.0.1
 
-We take the security of Source Fetcher seriously. If you believe you have found a security vulnerability, please report it to us as described below.
+Version 1.0.1 includes critical security fixes. **All users should upgrade immediately.**
 
-### Please Do Not
+### Fixed Vulnerabilities
 
-- **Do not** open a public GitHub issue for security vulnerabilities
-- **Do not** disclose the vulnerability publicly until it has been addressed
+1. **CORS Vulnerability (High)**
+   - **Issue**: Web GUI accepted requests from any origin
+   - **Impact**: Remote attackers could control local instance via malicious websites
+   - **Fix**: CORS now restricted to localhost origins only
+   - **Affected**: v1.0.0 and earlier
 
-### Please Do
+2. **Command Injection Risk (High)**
+   - **Issue**: Package names not validated before passing to shell commands
+   - **Impact**: Malicious package names could inject arbitrary commands
+   - **Fix**: Added comprehensive input validation
+   - **Affected**: v1.0.0 and earlier
 
-1. **Email us** at: ckkhua89@gmail.com
-2. **Include** the following information:
-   - Type of vulnerability
-   - Full paths of source file(s) related to the vulnerability
-   - Location of the affected source code (tag/branch/commit or direct URL)
-   - Step-by-step instructions to reproduce the issue
-   - Proof-of-concept or exploit code (if possible)
-   - Impact of the vulnerability
-   - Suggested fix (if available)
+3. **SSRF Vulnerability (High)**
+   - **Issue**: URL dependencies could access private networks
+   - **Impact**: Internal network resources could be accessed via SSRF
+   - **Fix**: Private IP addresses now blocked by default
+   - **Affected**: v1.0.0 and earlier
 
-### What to Expect
+## Security Features
 
-- **Acknowledgment**: We will acknowledge receipt of your vulnerability report within 48 hours
-- **Updates**: We will send you regular updates about our progress
-- **Timeline**: We aim to address critical vulnerabilities within 7 days
-- **Credit**: We will credit you in the security advisory (unless you prefer to remain anonymous)
+### CORS Protection
+Web GUI only accepts requests from:
+- `http://localhost:8765`
+- `http://127.0.0.1:8765`
 
-## 🛡️ Security Measures
+Can be configured in `.source-fetcher.yaml`:
+```yaml
+gui:
+  allowed_origins:
+    - http://localhost:8765
+    - http://127.0.0.1:8765
+```
 
-### Current Security Features
+**Warning**: Do not add external origins unless absolutely necessary.
 
-1. **Authentication**
-   - Support for Bearer tokens
-   - Basic authentication
-   - Environment variable-based credential storage
-   - No plaintext passwords in config files
+### Input Validation
+All package names and identifiers are validated to ensure they:
+- Contain only alphanumeric characters, dashes, underscores, dots, slashes, and @
+- Do not contain command injection sequences
+- Meet format requirements for the specific package manager
 
-2. **Downloads**
-   - HTTPS by default
-   - Checksum verification (where available)
-   - Timeout protection
-   - Size limit validation
+### SSRF Protection
+URL dependencies are validated to prevent access to:
+- Localhost (127.x.x.x, ::1)
+- Private networks (10.x.x.x, 172.16-31.x.x, 192.168.x.x)
+- Link-local addresses (169.254.x.x)
 
-3. **Script Execution**
-   - Lifecycle scripts disabled by default
-   - Whitelist-based script execution
-   - Configurable script policies (none/root/all)
+Can be configured in `.source-fetcher.yaml`:
+```yaml
+security:
+  block_private_ips: true   # Recommended: true
+  https_only: false         # Set to true for maximum security
+```
 
-4. **Input Validation**
-   - Sanitized user input
-   - Version string validation
-   - Path traversal protection
-   - Command injection prevention
+### File Permissions
+Sensitive files use restricted permissions:
+- Manifest files: `0600` (owner read/write only)
+- Report files: `0640` (owner read/write, group read)
 
-### Planned Security Enhancements
+### Safe YAML Parsing
+All YAML configuration files use explicit safe decoders to prevent:
+- Code execution via YAML tags
+- Arbitrary object instantiation
+- Resource exhaustion attacks
 
-- [ ] Package signature verification
-- [ ] Sandboxed script execution
-- [ ] Vulnerability scanning integration
-- [ ] Security audit logging
-- [ ] Rate limiting for API requests
-- [ ] Content Security Policy for downloads
+## Security Best Practices
 
-## 🔐 Security Best Practices
+### For End Users
 
-### For Users
-
-1. **Keep Updated**
+1. **Keep Software Updated**
    - Always use the latest version
-   - Subscribe to security advisories
-   - Review changelogs for security fixes
+   - Subscribe to GitHub releases for security notifications
 
-2. **Credentials**
-   - Use environment variables for tokens
-   - Never commit credentials to version control
+2. **Web GUI Usage**
+   - Only run Web GUI on trusted networks
+   - Do not expose port 8765 to the internet
+   - Close Web GUI when not in use
+
+3. **Configuration Files**
+   - Store `.source-fetcher.yaml` with restricted permissions
+   - Never commit files containing tokens to version control
+   - Use environment variables for sensitive credentials
+
+4. **Private Registries**
+   - Store tokens in environment variables, not config files
+   - Use read-only tokens when possible
    - Rotate tokens regularly
-   - Use least-privilege access
 
-3. **Script Execution**
-   - Keep scripts disabled unless necessary
-   - Review packages before allowing scripts
-   - Use whitelist for trusted packages
-   - Monitor script execution logs
+5. **URL Dependencies**
+   - Only download from trusted sources
+   - Verify checksums when available
+   - Keep `security.block_private_ips: true`
 
-4. **Network Security**
-   - Use HTTPS mirrors when possible
-   - Verify checksums after download
-   - Use VPN in untrusted networks
-   - Configure firewall rules appropriately
+### For Developers
 
-5. **Configuration**
-   - Protect config files with appropriate permissions
-   - Review auth profiles regularly
-   - Use separate profiles for different environments
-   - Audit configuration changes
+1. **Input Validation**
+   - All user input must be validated before use
+   - Use `isValidPackageName()` for package identifiers
+   - Use `parseURL()` and `isPrivateOrLocalAddress()` for URLs
 
-### For Contributors
+2. **Context Propagation**
+   - Pass `context.Context` to all long-running operations
+   - Respect context cancellation
+   - Use appropriate timeouts
 
-1. **Code Review**
-   - All code changes require review
-   - Security-sensitive changes require additional review
-   - Use static analysis tools
-   - Follow secure coding guidelines
+3. **Error Handling**
+   - Never expose sensitive information in error messages
+   - Log errors appropriately
+   - Handle edge cases explicitly
 
-2. **Dependencies**
-   - Keep dependencies updated
-   - Review dependency changes
-   - Use dependency scanning tools
-   - Minimize dependency count
+4. **Dependencies**
+   - Keep Go dependencies up to date
+   - Review dependency changes in PRs
+   - Use `go mod verify` to check integrity
 
-3. **Testing**
-   - Write security tests
-   - Test input validation
-   - Test authentication flows
-   - Test error handling
+## Reporting a Vulnerability
 
-## 🚨 Known Security Considerations
+**Please do not report security vulnerabilities through public GitHub issues.**
 
-### Lifecycle Scripts
+### Preferred Reporting Method
 
-**Risk**: npm packages can execute arbitrary code through lifecycle scripts (preinstall, install, postinstall).
+1. Email: [Your security contact email]
+2. Subject: `[SECURITY] Source Fetcher - [Brief Description]`
+3. Include:
+   - Description of the vulnerability
+   - Steps to reproduce
+   - Potential impact
+   - Suggested fix (if any)
 
-**Mitigation**:
-- Scripts are disabled by default
-- Whitelist mechanism for trusted packages
-- Configurable script policies
-- Future: Sandboxed execution
+### Response Timeline
 
-### Private Registry Authentication
+- **Initial Response**: Within 48 hours
+- **Status Update**: Within 7 days
+- **Fix Release**: Depends on severity
+  - Critical: 7 days
+  - High: 14 days
+  - Medium: 30 days
+  - Low: Next release
 
-**Risk**: Credentials could be exposed if not properly secured.
+### Disclosure Policy
 
-**Mitigation**:
-- Environment variable-based storage
-- No plaintext passwords in config
-- Support for token-based auth
-- Future: Encrypted credential storage
+- We will coordinate disclosure with the reporter
+- Public disclosure after fix is released
+- Credit will be given to the reporter (unless anonymity requested)
 
-### Download Verification
+## Security Update Process
 
-**Risk**: Downloaded packages could be tampered with.
+When a security issue is fixed:
 
-**Mitigation**:
-- HTTPS by default
-- Checksum verification (where available)
-- Future: Signature verification
+1. **Security Patch Release**
+   - Version bump (e.g., 1.0.0 → 1.0.1)
+   - CHANGELOG entry with severity rating
+   - GitHub Security Advisory created
 
-### Command Injection
+2. **User Notification**
+   - GitHub Release with security notice
+   - Badges updated in README
+   - Announcement in discussions (if severe)
 
-**Risk**: User input could be used to execute arbitrary commands.
+3. **CVE Assignment** (for severe issues)
+   - Request CVE from GitHub
+   - Update advisory with CVE ID
 
-**Mitigation**:
-- Input sanitization
-- Parameterized command execution
-- Path validation
-- Shell escaping
+## Security Checklist for Releases
 
-## 📋 Security Checklist for Releases
+Before each release, verify:
 
-Before each release, we verify:
+- [ ] All known security issues are fixed
+- [ ] Dependencies are up to date
+- [ ] `go vet ./...` passes
+- [ ] Security-focused tests pass
+- [ ] No credentials in code or configs
+- [ ] CHANGELOG includes security fixes
+- [ ] Security documentation is current
 
-- [ ] All dependencies are up to date
-- [ ] Security scanning has been performed
-- [ ] Known vulnerabilities have been addressed
-- [ ] Security tests pass
-- [ ] Documentation is updated
-- [ ] Security advisories are reviewed
-
-## 🔍 Security Audit History
-
-| Date | Auditor | Scope | Findings | Status |
-|------|---------|-------|----------|--------|
-| TBD  | TBD     | TBD   | TBD      | TBD    |
-
-## 📚 Security Resources
+## Additional Resources
 
 - [OWASP Top 10](https://owasp.org/www-project-top-ten/)
-- [CWE Top 25](https://cwe.mitre.org/top25/)
-- [Go Security Best Practices](https://golang.org/doc/security/)
-- [npm Security Best Practices](https://docs.npmjs.com/security-best-practices)
-
-## 🏆 Security Hall of Fame
-
-We would like to thank the following individuals for responsibly disclosing security vulnerabilities:
-
-<!-- Security researchers will be listed here -->
-
-## 📞 Contact
-
-For security-related questions that are not vulnerabilities, please use:
-- GitHub Discussions: [Security Category]
-- Email: ckkhua89@gmail.com
+- [CWE - Common Weakness Enumeration](https://cwe.mitre.org/)
+- [Go Security Best Practices](https://go.dev/doc/security/best-practices)
 
 ---
 
-**Last Updated:** May 31, 2026
-
-Thank you for helping keep Source Fetcher and its users safe!
+**Last Updated**: 2026-06-06 (v1.0.1)

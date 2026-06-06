@@ -8,7 +8,7 @@ import (
 // Version information (set by build flags)
 var (
 	// Version is the semantic version of source-fetcher
-	Version = "dev"
+	Version = "1.0.1"
 
 	// BuildTime is when the binary was built
 	BuildTime = "unknown"

@@ -205,12 +205,94 @@ sfer download --source winget --name Microsoft.VisualStudioCode
 - `winget`：直接读取 `winget-pkgs` 仓库清单并提取 `InstallerUrl`
 - `url`：内置 HTTP 下载器，不依赖 `curl`
 
+## 🔒 安全特性
+
+Source Fetcher v1.0.1 包含以下安全增强：
+
+- ✅ **CORS 防护**：Web GUI 仅允许本地 Origin（localhost/127.0.0.1）
+- ✅ **输入验证**：包名和参数验证，防止命令注入
+- ✅ **SSRF 防护**：阻止访问私有 IP 地址（可配置）
+- ✅ **文件权限**：敏感文件使用严格权限（0600/0640）
+- ✅ **安全解析**：YAML 配置使用安全解析器
+
+> **安全建议**：
+> - 仅在受信任的网络环境中运行 Web GUI
+> - 不要禁用 `security.block_private_ips` 设置
+> - 定期更新到最新版本以获取安全修复
+
+## ⚙️ 配置文件
+
+Source Fetcher 支持全局配置文件 `.source-fetcher.yaml`，放置在项目根目录或用户主目录。
+
+### 快速开始
+
+```bash
+# 复制示例配置文件
+copy .source-fetcher.example.yaml .source-fetcher.yaml
+
+# 根据需要编辑配置
+notepad .source-fetcher.yaml
+```
+
+### 配置项说明
+
+```yaml
+# Web GUI 配置
+gui:
+  port: 8765                    # 端口号
+  auto_open_browser: true       # 自动打开浏览器
+  allowed_origins:              # CORS 白名单
+    - http://localhost:8765
+    - http://127.0.0.1:8765
+
+# 下载配置
+download:
+  output_dir: "./downloads"     # 默认下载目录
+  timeout: "30s"                # 超时时间
+  chunks: 4                     # 并发下载块数（1-10）
+  resume: true                  # 启用断点续传
+
+# 镜像源配置
+mirrors:
+  npm: ""                       # 留空使用默认镜像
+  pip: ""                       # 或填写自定义镜像 URL
+  
+# 安全配置
+security:
+  https_only: false             # 仅允许 HTTPS URL
+  block_private_ips: true       # 阻止私有 IP (SSRF 防护)
+
+# 认证配置（用于私有源）
+auth_profiles:
+  private-registry:
+    bearer_token_env: "NPM_TOKEN"  # 从环境变量读取
+    headers:
+      X-Custom-Header: "value"
+
+# npm 安装配置
+install_defaults:
+  scripts_policy: "root"        # none | root | all
+  allow_scripts:                # 允许运行脚本的包列表
+    - "package-name"
+```
+
+完整配置示例请参考 [`.source-fetcher.example.yaml`](.source-fetcher.example.yaml)
+
+### 配置文件优先级
+
+1. 命令行参数（最高优先级）
+2. 当前目录的 `.source-fetcher.yaml`
+3. 用户主目录的 `.source-fetcher.yaml`
+4. 内置默认值
+
 ## 当前范围
 
 这是一个可运行的 MVP，不是完整包管理器。
 
 - 已支持：下载、镜像测试、winget 安装器选择
 - 已支持：单任务解析预览、YAML 批量下载和批量安装
+- 已支持：全局配置文件系统 (`.source-fetcher.yaml`)
+- 已支持：安全防护（CORS、输入验证、SSRF 防护）
 - 已支持：`npm` 依赖安装/卸载/修复 MVP，会递归解析 `dependencies`/`optionalDependencies`/`peerDependencies`/`devDependencies`（按参数控制）、组装 `node_modules`、生成 `.bin`，并基于安装清单执行卸载与修复
 - 已支持：私有鉴权源、断点续传、并发分块下载
 - 已支持：安装 lockfile、冻结 lockfile、受控 lifecycle scripts（`none/root/all`）
