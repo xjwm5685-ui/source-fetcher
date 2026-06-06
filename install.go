@@ -41,6 +41,11 @@ type InstallRequest struct {
 	FrozenLockfile bool     `yaml:"frozen_lockfile"`
 	ScriptsPolicy  string   `yaml:"scripts_policy"`
 	AllowScripts   []string `yaml:"allow_scripts"`
+	
+	// Cargo specific options
+	CargoBuild      bool   `yaml:"cargo_build"`       // Build binary from source
+	CargoInstall    bool   `yaml:"cargo_install"`     // Install binary to system
+	CargoBinName    string `yaml:"cargo_bin_name"`    // Specific binary name to build
 
 	RequestOptions RequestOptions `yaml:"-"`
 }

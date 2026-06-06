@@ -11,21 +11,27 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 )
 
-// NativeInstallRequest 用于 choco/winget 的安装请求
+// NativeInstallRequest 用于 choco/winget/cargo 的安装请求
 type NativeInstallRequest struct {
-	Source      string
-	Name        string
-	PackageID   string
-	Version     string
-	Arch        string
-	Silent      bool
-	Scope       string // user/machine (winget)
-	Force       bool
-	SkipConfirm bool
+	Source       string
+	Name         string
+	PackageID    string
+	Version      string
+	Arch         string
+	Silent       bool
+	Scope        string // user/machine (winget)
+	Force        bool
+	SkipConfirm  bool
+	
+	// Cargo 特定选项
+	BuildBinary  bool   // 是否编译二进制文件
+	InstallBinary bool  // 是否安装二进制文件到系统
+	BinName      string // 指定要编译的二进制名称（可选）
 }
 
 // NativeInstallResult 安装结果
@@ -237,8 +243,9 @@ func detectInstallerType(path string) string {
 	}
 }
 
-// executeCargoInstall 执行 Cargo crate 安装（无需 cargo 命令）
+// executeCargoInstall 执行 Cargo crate 安装（支持可选编译）
 // .crate 文件是 gzip 压缩的 tar 归档，直接解压到目标目录
+// 如果指定了编译选项，会自动编译并安装二进制文件
 func executeCargoInstall(ctx context.Context, client *http.Client, req NativeInstallRequest, downloadOptions DownloadOptions) (NativeInstallResult, error) {
 	start := time.Now()
 	
@@ -270,24 +277,95 @@ func executeCargoInstall(ctx context.Context, client *http.Client, req NativeIns
 		return NativeInstallResult{}, fmt.Errorf("create install directory: %w", err)
 	}
 	
-	// 3. 解压 .crate 文件（格式与 npm tarball 类似）
+	// 3. 解压 .crate 文件
 	if err := extractCargoArchive(result.Path, installDir); err != nil {
 		return NativeInstallResult{}, fmt.Errorf("extract cargo crate: %w", err)
 	}
 	
 	outputMsg := fmt.Sprintf("Successfully extracted %s@%s to %s\n", req.Name, plan.Version, installDir)
-	outputMsg += fmt.Sprintf("\nNote: This is a source distribution. To build and use:\n")
-	outputMsg += fmt.Sprintf("  cd %s\n", installDir)
-	outputMsg += fmt.Sprintf("  cargo build --release\n")
-	outputMsg += fmt.Sprintf("  # Binary will be in target/release/\n")
+	
+	// 4. 如果启用了编译选项，尝试编译
+	var binaryPath string
+	var buildSuccess bool
+	
+	if req.BuildBinary {
+		outputMsg += "\n--- Building binary ---\n"
+		
+		// 检查 cargo 是否可用
+		available, cargoVersion, err := checkCargoAvailable()
+		if !available {
+			outputMsg += fmt.Sprintf("⚠️  Cargo not found: %v\n", err)
+			outputMsg += "   Binary not built. Source code is available in the directory above.\n"
+			outputMsg += "   To build manually:\n"
+			outputMsg += fmt.Sprintf("     cd %s\n", installDir)
+			outputMsg += "     cargo build --release\n"
+		} else {
+			outputMsg += fmt.Sprintf("Using %s\n", cargoVersion)
+			
+			// 构建选项
+			buildOptions := CargoBuildOptions{
+				SourceDir:   installDir,
+				Release:     true,  // 默认 release 模式
+				Verbose:     false,
+			}
+			
+			// 如果指定了二进制名称
+			if req.BinName != "" {
+				buildOptions.BinName = req.BinName
+			}
+			
+			// 执行编译
+			buildResult, err := buildCargoCrate(ctx, buildOptions)
+			if err != nil {
+				outputMsg += fmt.Sprintf("❌ Build failed: %v\n", err)
+				outputMsg += fmt.Sprintf("\nBuild output:\n%s\n", buildResult.Output)
+			} else {
+				buildSuccess = true
+				binaryPath = buildResult.BinaryPath
+				outputMsg += fmt.Sprintf("✅ Build successful (%.2fs)\n", buildResult.Duration.Seconds())
+				outputMsg += fmt.Sprintf("Binary: %s\n", binaryPath)
+				
+				// 5. 如果启用了安装选项，安装二进制文件
+				if req.InstallBinary && binaryPath != "" {
+					outputMsg += "\n--- Installing binary ---\n"
+					
+					installBinDir := getCargoInstallDir()
+					installedPath, err := installCargoBinary(binaryPath, installBinDir)
+					if err != nil {
+						outputMsg += fmt.Sprintf("❌ Install failed: %v\n", err)
+					} else {
+						outputMsg += fmt.Sprintf("✅ Installed to: %s\n", installedPath)
+						binaryPath = installedPath
+						
+						// 检查 PATH
+						if !checkPathContains(installBinDir) {
+							outputMsg += fmt.Sprintf("\n⚠️  Warning: %s is not in PATH\n", installBinDir)
+							outputMsg += "   Add it to PATH to use the binary globally:\n"
+							if runtime.GOOS == "windows" {
+								outputMsg += fmt.Sprintf("     $env:Path += \";%s\"\n", installBinDir)
+							} else {
+								outputMsg += fmt.Sprintf("     export PATH=\"%s:$PATH\"\n", installBinDir)
+							}
+						}
+					}
+				}
+			}
+		}
+	} else {
+		// 不编译，提供使用说明
+		outputMsg += "\nℹ️  This is a source distribution. To build and use:\n"
+		outputMsg += fmt.Sprintf("  cd %s\n", installDir)
+		outputMsg += "  cargo build --release\n"
+		outputMsg += "  # Binary will be in target/release/\n"
+	}
 	
 	return NativeInstallResult{
 		Source:       "cargo",
 		Identifier:   req.Name,
 		Version:      plan.Version,
 		InstallerURL: plan.URL,
-		LocalPath:    installDir,
-		Installed:    true,
+		LocalPath:    binaryPath,  // 如果编译了，返回二进制路径
+		Installed:    buildSuccess, // 如果编译成功，标记为已安装
 		Output:       outputMsg,
 		Duration:     time.Since(start),
 	}, nil
@@ -548,22 +626,25 @@ func resolveCargoInstallPlan(ctx context.Context, client *http.Client, req Insta
 }
 
 // executeNativeInstallPlan 执行 choco/winget/cargo 安装计划
-func executeNativeInstallPlan(ctx context.Context, client *http.Client, plan InstallPlan, options DownloadOptions) (InstallResult, error) {
+func executeNativeInstallPlan(ctx context.Context, client *http.Client, plan InstallPlan, options DownloadOptions, req InstallRequest) (InstallResult, error) {
 	if len(plan.Packages) == 0 {
 		return InstallResult{}, errors.New("install plan contains no packages")
 	}
 	
-	// 对于 choco/winget，我们只处理单个包
+	// 对于 choco/winget/cargo，我们只处理单个包
 	pkg := plan.Packages[0]
 	
 	// 构建 native install request
 	nativeReq := NativeInstallRequest{
-		Source:      plan.Source,
-		Name:        pkg.Name,
-		PackageID:   pkg.Name,
-		Version:     pkg.Version,
-		Silent:      true,
-		SkipConfirm: true,
+		Source:        plan.Source,
+		Name:          pkg.Name,
+		PackageID:     pkg.Name,
+		Version:       pkg.Version,
+		Silent:        true,
+		SkipConfirm:   true,
+		BuildBinary:   req.CargoBuild,
+		InstallBinary: req.CargoInstall,
+		BinName:       req.CargoBinName,
 	}
 	
 	// 执行安装

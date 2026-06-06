@@ -670,7 +670,7 @@ func (s *WebGUIServer) executeInstall(ctx context.Context, task *QueueTask) erro
 		// 原生安装（choco、winget、cargo）
 		_, err = executeNativeInstallPlan(ctx, s.httpClient, plan, DownloadOptions{
 			OutputDir: ".",
-		})
+		}, req)
 	default:
 		return fmt.Errorf("install is not supported for source: %s (only npm, cargo, choco, winget are supported)", result.Source)
 	}

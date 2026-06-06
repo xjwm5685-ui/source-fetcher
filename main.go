@@ -36,7 +36,7 @@ import (
 	"time"
 )
 
-var version = "1.1.0"
+var version = "1.2.0"
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -229,6 +229,11 @@ func runInstall(args []string) error {
 	allowScripts := fs.String("allow-scripts", "", "comma-separated package names allowed to run blocked lifecycle scripts")
 	planOnly := fs.Bool("plan", false, "resolve dependency tree without installing")
 	verbose := fs.Bool("verbose", false, "print verbose resolve, lockfile, integrity, and script logs to stderr")
+	
+	// Cargo specific flags
+	cargoBuild := fs.Bool("cargo-build", false, "build binary from cargo crate source (requires Rust toolchain)")
+	cargoInstall := fs.Bool("cargo-install", false, "install built binary to ~/.cargo/bin (implies --cargo-build)")
+	cargoBinName := fs.String("cargo-bin", "", "specify binary name to build (default: auto-detect)")
 
 	helpShown, err := parseCommandFlags(fs, args)
 	if err != nil {
@@ -273,7 +278,12 @@ func runInstall(args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
 
-	plan, err := resolveInstallPlan(ctx, client, InstallRequest{
+	// 处理 cargo-install 隐含 cargo-build
+	if *cargoInstall {
+		*cargoBuild = true
+	}
+
+	installReq := InstallRequest{
 		Source:         strings.ToLower(strings.TrimSpace(*source)),
 		Name:           strings.TrimSpace(*name),
 		Version:        strings.TrimSpace(*versionFlag),
@@ -289,8 +299,13 @@ func runInstall(args []string) error {
 		FrozenLockfile: *frozenLockfile,
 		ScriptsPolicy:  effectiveScriptsPolicy,
 		AllowScripts:   effectiveAllowScripts,
+		CargoBuild:     *cargoBuild,
+		CargoInstall:   *cargoInstall,
+		CargoBinName:   strings.TrimSpace(*cargoBinName),
 		RequestOptions: requestOptions,
-	})
+	}
+
+	plan, err := resolveInstallPlan(ctx, client, installReq)
 	if err != nil {
 		return err
 	}
@@ -315,7 +330,7 @@ func runInstall(args []string) error {
 			Resume:         *resume,
 			Chunks:         *chunks,
 			RequestOptions: requestOptions,
-		})
+		}, installReq)
 	default:
 		return fmt.Errorf("unsupported install source: %s", plan.Source)
 	}

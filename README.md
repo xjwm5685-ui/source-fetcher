@@ -360,7 +360,7 @@ install_defaults:
 
 - `npm`：搜索、下载、安装、卸载、修复
 - `pip`：搜索、下载
-- `cargo`：搜索、下载、安装（源码解压）⭐ 新功能
+- `cargo`：搜索、下载、安装（源码解压/编译/系统安装）⭐ v1.2.0 新功能
 - `maven`：搜索、下载
 - `choco`：搜索、下载、自动安装
 - `winget`：搜索、下载、安装器枚举、自动安装
@@ -570,30 +570,53 @@ sfer install --source winget --name Microsoft.PowerToys --plan
 
 **注意**：某些安装器需要管理员权限。
 
-### cargo 自动安装 ⭐ 新功能
+### cargo 自动安装与编译 ⭐ 新功能
+
+**三种使用模式：**
 
 ```powershell
-# 安装最新版本（无需安装 Rust）
+# 1️⃣ 源码模式（默认，无需 Rust）- 只下载源码
 sfer install --source cargo --name serde
 
-# 安装指定版本
-sfer install --source cargo --name tokio --version 1.35.0
+# 2️⃣ 编译模式（需要 Rust）- 下载并编译二进制
+sfer install --source cargo --name ripgrep --cargo-build
+
+# 3️⃣ 安装模式（需要 Rust）- 下载、编译并安装到系统
+sfer install --source cargo --name ripgrep --cargo-install
 
 # 查看安装计划
 sfer install --source cargo --name ripgrep --plan
 ```
 
-**注意**：
-- 无需安装 Rust 或 Cargo 工具链
-- 直接下载并解压 .crate 源码包到本地
-- 解压后的源码可用于查看、学习或手动编译
-- 如需编译二进制，解压后仍需安装 Rust 工具链并运行 `cargo build`
+**功能说明**：
+- **源码模式**（默认）：无需 Rust，只下载源码到 `cargo-crates/<name>-<version>/`
+- **编译模式**（`--cargo-build`）：需要 Rust，自动编译生成可执行文件
+- **安装模式**（`--cargo-install`）：需要 Rust，编译后安装到 `~/.cargo/bin/`
+- **指定二进制**：使用 `--cargo-bin <name>` 指定要编译的二进制名称
+
+**常用工具快速安装**：
+```powershell
+# 快速搜索工具
+sfer install --source cargo --name ripgrep --cargo-install
+sfer install --source cargo --name fd-find --cargo-install
+
+# 文件查看工具
+sfer install --source cargo --name bat --cargo-install
+sfer install --source cargo --name hexyl --cargo-install
+
+# 系统监控工具
+sfer install --source cargo --name bottom --cargo-install
+sfer install --source cargo --name procs --cargo-install
+```
 
 说明：`install` 会按参数控制递归解析 `dependencies`、`optionalDependencies`、`peerDependencies` 和根包 `devDependencies`，先把 tarball 下载到输出目录下的 `.source-fetcher\tarballs` 缓存，再解包到 `.source-fetcher\store`，最后按 npm 规则组装到 `node_modules`、生成 `node_modules\.bin`，并写出 `source-fetcher-install.json` 与 `source-fetcher-install.lock.json`。
 说明：传 `--frozen-lockfile` 时会优先要求 lockfile 与当前请求匹配；匹配成功则直接按 lockfile 解析，不再请求 registry。
 说明：传 `--scripts none|root|all` 可控制是否执行 `preinstall/install/postinstall` 生命周期脚本，默认 `none`。
 说明：传 `--allow-scripts esbuild,sharp` 可对白名单包放开被默认拦截的 `preinstall`；若同时使用 `source-fetcher.yaml` 里的 `install_defaults.allow_scripts`，CLI 参数会覆盖 YAML，而不是合并。
-说明：对于 **cargo**，`install` 命令会下载 .crate 源码包并解压到 `<output>/cargo-crates/<name>-<version>` 目录，无需安装 Rust 工具链即可获取源代码。
+说明：对于 **cargo**，`install` 命令支持三种模式：
+- **源码模式**（默认）：下载 .crate 源码包并解压到 `<output>/cargo-crates/<name>-<version>` 目录，无需 Rust
+- **编译模式**（`--cargo-build`）：下载源码并自动编译二进制文件，需要 Rust
+- **安装模式**（`--cargo-install`）：下载、编译并安装到 `~/.cargo/bin/`，需要 Rust
 
 卸载已安装内容：
 
@@ -668,23 +691,31 @@ sfer batch --config .\source-fetcher.yaml --plan
 
 ### `install`
 
-- `--source`：当前仅支持 `npm`
-- `--name`：根 npm 包名
+- `--source`：当前仅支持 `npm`、`cargo`、`choco`、`winget`
+- `--name`：根包名
 - `--version`：根包版本、tag 或 semver range，如 `latest`、`^19`、`>=18 <20`
-- `--output`：安装根目录，实际会在其下生成 `node_modules`
-- `--mirror`：npm 镜像名称或自定义 base URL
+- `--output`：安装根目录，实际会在其下生成 `node_modules`（npm）或 `cargo-crates`（cargo）
+- `--mirror`：镜像名称或自定义 base URL
 - `--config`：可选配置文件路径，用于加载 `auth_profiles`
 - `--auth-profile`：安装过程请求所使用的鉴权配置名称
-- `--resume`：安装时下载缓存 tarball 复用已有 `.part` 文件继续下载
-- `--chunks`：安装时下载缓存 tarball 启用并发分块下载
+- `--resume`：安装时下载缓存复用已有 `.part` 文件继续下载
+- `--chunks`：安装时下载缓存启用并发分块下载
+
+**npm 特定参数**：
 - `--omit-optional`：安装时跳过 `optionalDependencies`
 - `--include-peer`：安装时纳入 `peerDependencies`
 - `--include-dev`：安装时为根包纳入 `devDependencies`
 - `--lockfile`：显式指定安装 lockfile 路径，默认 `<output>\source-fetcher-install.lock.json`
 - `--frozen-lockfile`：要求当前安装请求与 lockfile 匹配，否则直接失败
 - `--scripts`：生命周期脚本策略，支持 `none`、`root`、`all`
+
+**cargo 特定参数**：
+- `--cargo-build`：编译二进制文件（需要 Rust）
+- `--cargo-install`：编译并安装到系统（需要 Rust）
+- `--cargo-bin <name>`：指定要编译的二进制名称
+
 - `--timeout`：解析与下载总超时
-- `--plan`：只输出依赖安装计划，不执行下载
+- `--plan`：只输出安装计划，不执行下载
 
 说明：当前版本会递归解析 npm 依赖树，按解析后的唯一版本集合复用 tarball 下载和解包缓存，并把包铺到类似 npm 的 `node_modules` 目录结构中；manifest 会记录缓存路径、store 路径、`.bin` shim 和每个包的实际安装位置。
 

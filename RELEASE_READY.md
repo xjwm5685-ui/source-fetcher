@@ -1,340 +1,308 @@
-# 🎉 Source Fetcher 已准备发布！
+# ✅ Release v1.1.0 准备就绪
 
-**日期**: 2026-06-06  
-**状态**: ✅ Git 仓库已初始化，所有文件已提交  
-**版本**: v1.0.0
+## 📦 已完成的准备工作
 
----
-
-## ✅ 已完成的工作
-
-### Git 仓库状态
-- ✅ Git 仓库已初始化
-- ✅ 主分支设置为 `main`
-- ✅ 所有文件已添加（104 个文件）
-- ✅ 初始提交已创建
-- ✅ v1.0.0 标签已创建
-- ✅ 工作区干净，无未提交的更改
-
-### 提交信息
+### 1. ✅ 编译可执行文件
 ```
-Commit: 3173ecd
-Message: feat: initial release v1.0.0
-Files: 104 files changed, 37586 insertions(+)
+✓ dist/source-fetcher-windows-amd64.exe (9.55 MB, v1.1.0)
+✓ dist/source-fetcher-windows-386.exe (9.05 MB, v1.1.0)
 ```
 
-### 标签信息
+### 2. ✅ 更新版本号
 ```
-Tag: v1.0.0
-Message: Release v1.0.0 - First stable release
+✓ version.go - Version = "1.1.0"
+✓ main.go - version = "1.1.0"
+✓ 编译验证通过
 ```
 
----
+### 3. ✅ 更新文档
+```
+✓ CHANGELOG.md - 添加 v1.1.0 更新内容
+✓ RELEASE_v1.1.0.md - Release 说明文档
+✓ CREATE_GITHUB_RELEASE.md - 发布操作指南
+```
 
-## 🚀 下一步：在 GitHub 上发布
+## 🚀 下一步：创建 GitHub Release
 
-### 步骤 1: 在 GitHub 创建仓库
+### 选项 A: 使用 GitHub CLI（最快）⭐
 
-1. **登录 GitHub**：https://github.com
-2. **点击右上角的 `+` 号** → `New repository`
-3. **填写仓库信息**：
-   - Repository name: `source-fetcher`
-   - Description: `Unified package download tool - No native clients required`
-   - Visibility: **Public** (推荐，开源项目)
-   - ❌ **不要** 勾选 "Add a README file"
-   - ❌ **不要** 勾选 "Add .gitignore"
-   - ❌ **不要** 勾选 "Choose a license"
-   - （因为我们已经有这些文件了）
-4. **点击 `Create repository`**
-
-### 步骤 2: 添加远程仓库并推送
-
-GitHub 创建完成后，会显示命令。在 PowerShell 中执行：
+如果已安装 `gh` CLI：
 
 ```powershell
-# 进入项目目录
-cd d:\dy\source-fetcher
+# 1. 推送代码
+git add .
+git commit -m "release: v1.1.0 - cargo install support and one-line installation"
+git push origin main
 
-# 添加远程仓库（替换 jiahe 为你的实际用户名）
-git remote add origin https://github.com/jiahe/source-fetcher.git
-
-# 推送代码到主分支
-git push -u origin main
-
-# 推送标签（触发 GitHub Actions 自动构建和发布）
-git push origin v1.0.0
+# 2. 创建 Release（一条命令搞定！）
+gh release create v1.1.0 `
+  dist/source-fetcher-windows-amd64.exe `
+  dist/source-fetcher-windows-386.exe `
+  --title "v1.1.0 - Cargo Install Support & One-Line Installation" `
+  --notes-file RELEASE_v1.1.0.md `
+  --latest
 ```
 
-**注意**：如果你的 GitHub 用户名不是 `jiahe`，请将上面的 URL 中的 `jiahe` 替换为你的用户名。
+### 选项 B: 使用 GitHub 网页（推荐）
 
-### 步骤 3: 等待 GitHub Actions 完成
+#### 第 1 步：推送代码
 
-推送标签后，GitHub Actions 会自动：
+```powershell
+# 添加所有更改
+git add .
 
-1. ✅ 运行所有测试（test.yml workflow）
-2. ✅ 构建所有平台的二进制文件（release.yml workflow）
-   - Windows (amd64, arm64)
-   - Linux (amd64, arm64)
-   - macOS (amd64, arm64)
-3. ✅ 创建 GitHub Release
-4. ✅ 上传二进制文件到 Release
+# 提交（包含详细说明）
+git commit -m "release: v1.1.0 - cargo install support and one-line installation
 
-**查看进度**：
-- 前往 `https://github.com/jiahe/source-fetcher/actions`
-- 等待所有 workflow 完成（通常 5-10 分钟）
+Major updates:
+- Add cargo package installation without Rust toolchain
+- Add one-line PowerShell installation script
+- Add Web GUI support for cargo/choco/winget installation
+- Add 11+ comprehensive documentation guides
 
----
+Features:
+- Cargo install: Download and extract .crate without Rust
+- One-line install: irm install.ps1 | iex
+- Web GUI: Support npm/cargo/choco/winget installation
 
-## ⚙️ 步骤 4: 配置 GitHub 仓库设置
+Documentation:
+- CARGO_INSTALL_GUIDE.md
+- INSTALLATION.md
+- QUICK_INSTALL.md
+- PROJECT_STATUS.md
+- And 7 more guides
 
-### 基本设置
+Version: 1.1.0
+Date: 2026-06-06"
 
-1. **前往仓库设置**：`Settings` 标签
-2. **General** 部分：
-   - ✅ Description: `Unified package download tool - No native clients required`
-   - ✅ Website: 留空（或填写你的文档网站）
-   - ✅ Topics: 添加以下标签：
-     ```
-     package-manager, npm, chocolatey, winget, go, cli, tui, 
-     download-manager, mirror, offline, dependency-management,
-     package-downloader, china-mirror
-     ```
-
-### 功能启用
-
-在 **General** → **Features** 部分：
-- ✅ Issues (启用)
-- ✅ Preserve this repository (保留此仓库)
-- ✅ Discussions (启用，推荐)
-- ✅ Projects (可选)
-- ✅ Wiki (可选)
-- ❌ Sponsorships (如果不需要赞助可以关闭)
-
-### Actions 权限
-
-在 **Settings** → **Actions** → **General**：
-- ✅ Allow all actions and reusable workflows
-- ✅ Read and write permissions
-- ✅ Allow GitHub Actions to create and approve pull requests
-
-### 分支保护（可选但推荐）
-
-在 **Settings** → **Branches**：
-- 添加规则保护 `main` 分支：
-  - ✅ Require pull request before merging
-  - ✅ Require status checks to pass
-  - ✅ Require branches to be up to date
-  - ✅ Include administrators (可选)
-
----
-
-## 📊 步骤 5: 验证发布成功
-
-### 检查清单
-
-1. ✅ 代码已推送到 GitHub
-   - 访问 `https://github.com/jiahe/source-fetcher`
-   - 确认所有文件都在
-
-2. ✅ GitHub Actions 全部成功
-   - 访问 `https://github.com/jiahe/source-fetcher/actions`
-   - 确认所有 workflows 显示绿色 ✅
-
-3. ✅ Release 已创建
-   - 访问 `https://github.com/jiahe/source-fetcher/releases`
-   - 确认 v1.0.0 release 存在
-   - 确认所有二进制文件都已上传（6 个文件）
-
-4. ✅ README 正确显示
-   - 确认 Badges 正确显示
-   - 确认链接都有效
-
----
-
-## 📣 步骤 6: 推广项目
-
-### 立即行动（发布当天）
-
-#### 1. 社交媒体
-
-**Twitter/X** (推荐使用中英双语)：
-```
-🚀 刚发布了 Source Fetcher v1.0.0！
-
-统一的包管理下载工具：
-✅ 无需安装 npm/choco/winget 客户端
-✅ 国内镜像加速，自动故障转移
-✅ 离线友好，企业部署首选
-✅ TUI/Web GUI 双界面
-
-GitHub: https://github.com/jiahe/source-fetcher
-
-#golang #packagemanager #opensource #devtools
+# 推送到 GitHub
+git push origin main
 ```
 
-**Reddit**：
-- r/golang - 标题: `[Release] Source Fetcher v1.0.0 - Unified package download tool written in Go`
-- r/programming - 标题: `Source Fetcher - Download packages from npm/pip/choco/winget without installing native clients`
+#### 第 2 步：在 GitHub 创建 Release
 
-**中文社区**：
-- **V2EX** (https://v2ex.com/new)
-  - 节点: 分享创造
-  - 标题: `Source Fetcher - 统一的包管理下载工具，无需安装原生客户端`
-  
-- **掘金** (https://juejin.cn)
-  - 发布技术文章，介绍项目
+1. **打开浏览器**访问（替换 YOUR_USERNAME）：
+   ```
+   https://github.com/YOUR_USERNAME/source-fetcher/releases/new
+   ```
 
-- **思否** (https://segmentfault.com)
-  - 发布项目介绍
+2. **填写信息**：
+   - **Choose a tag**: `v1.1.0` (新建)
+   - **Release title**: `v1.1.0 - Cargo Install Support & One-Line Installation`
+   - **Describe this release**: 复制粘贴 `RELEASE_v1.1.0.md` 的内容
+     - 或者使用 `CREATE_GITHUB_RELEASE.md` 中的精简版本
 
-#### 2. 技术社区
+3. **上传文件**：
+   - 点击 "Attach binaries by dropping them here or selecting them"
+   - 上传这两个文件：
+     - `dist/source-fetcher-windows-amd64.exe`
+     - `dist/source-fetcher-windows-386.exe`
 
-**Dev.to**：
+4. **设置选项**：
+   - ✅ 勾选 "Set as the latest release"
+   - ✅ 勾选 "Create a discussion for this release"（可选）
+
+5. **发布**：
+   - 点击绿色按钮 "Publish release"
+
+## ✅ 发布后验证清单
+
+### 立即验证
+
+```powershell
+# 1. 检查 Release 页面
+# 访问: https://github.com/YOUR_USERNAME/source-fetcher/releases
+# 确认：Tag, 文件, 描述都正确
+
+# 2. 测试一键安装（在新终端窗口）
+irm https://raw.githubusercontent.com/YOUR_USERNAME/source-fetcher/main/install.ps1 | iex
+
+# 3. 验证版本
+sfer version
+# 应该显示: 1.1.0
+
+# 4. 测试 Cargo 安装
+sfer install --source cargo --name serde --plan
+
+# 5. 测试 Web GUI
+sfer gui
+# 浏览器应自动打开 http://localhost:8765
 ```
-标题: Introducing Source Fetcher: Unified Package Downloads Without Native Clients
 
-写一篇简短的介绍文章（300-500 字）
-链接到 GitHub
+### 详细验证
+
+- [ ] GitHub Release 已创建
+- [ ] Tag 为 v1.1.0
+- [ ] 标记为 "Latest release"
+- [ ] 两个 .exe 文件已上传
+- [ ] Release 描述显示正确
+- [ ] 一键安装命令可用
+- [ ] `sfer version` 显示 1.1.0
+- [ ] `sfer search` 功能正常
+- [ ] `sfer install --source cargo` 功能正常
+- [ ] `sfer gui` 可以启动
+- [ ] Web GUI 中 cargo/choco/winget 安装正常
+
+## 📝 Release 说明（精简版）
+
+如果你想使用更简短的 Release 说明，这里有一个精简版：
+
+```markdown
+## 🎉 v1.1.0 主要更新
+
+### ⭐ Cargo 包安装（无需 Rust 工具链）
+
+```powershell
+# 直接安装 Cargo crate 源码，无需 Rust！
+sfer install --source cargo --name serde
 ```
 
-**Hacker News** (https://news.ycombinator.com/submit)：
+### ⭐ 一键安装脚本
+
+```powershell
+# 类似 rustup 的便捷安装
+irm https://raw.githubusercontent.com/YOUR_USERNAME/source-fetcher/main/install.ps1 | iex
 ```
-Title: Source Fetcher – Unified package download tool
-URL: https://github.com/jiahe/source-fetcher
+
+### ⭐ Web GUI 多源支持
+
+```powershell
+# Web GUI 现在支持 npm/cargo/choco/winget 安装
+sfer gui
 ```
 
-**Product Hunt** (https://www.producthunt.com/posts/create)：
-需要准备：
-- 产品名称
-- 标语
-- 截图/GIF
-- 详细描述
+## 📦 快速开始
 
----
+**安装**:
+```powershell
+irm https://raw.githubusercontent.com/YOUR_USERNAME/source-fetcher/main/install.ps1 | iex
+```
 
-## 📈 后续维护
+**使用**:
+```powershell
+sfer version                                    # 查看版本
+sfer search --source npm --query react         # 搜索包
+sfer install --source cargo --name tokio       # 安装 cargo 包
+sfer gui                                       # 启动 Web GUI
+```
 
-### 第一周
+## 📚 文档
 
-**每日任务**：
-- ⏱️ 在 24 小时内回复所有 Issues
-- ⏱️ 在 48 小时内回复所有 PRs
-- 👍 感谢所有 Stars 和 Forks
-- 📊 监控下载量
+- [安装指南](https://github.com/YOUR_USERNAME/source-fetcher/blob/main/INSTALLATION.md)
+- [快速开始](https://github.com/YOUR_USERNAME/source-fetcher/blob/main/QUICK_INSTALL.md)
+- [Cargo 安装指南](https://github.com/YOUR_USERNAME/source-fetcher/blob/main/CARGO_INSTALL_GUIDE.md)
+- [完整更新日志](https://github.com/YOUR_USERNAME/source-fetcher/blob/main/CHANGELOG.md)
 
-**监控指标**：
-- GitHub Stars
-- Downloads (Release 下载量)
-- Issues/PRs 数量
-- 社交媒体反馈
+## 🎯 新功能
 
-### 第一个月
+- ✅ Cargo 包安装（无需 Rust）
+- ✅ 一键安装脚本
+- ✅ Web GUI 多源支持（npm/cargo/choco/winget）
+- ✅ 11+ 完整文档
 
-**目标**：
-- 🎯 100+ Stars
-- 🎯 500+ Downloads
-- 🎯 10+ Issues/PRs
-- 🎯 5+ 贡献者
+**完整 README**: https://github.com/YOUR_USERNAME/source-fetcher
+```
 
-**行动**：
-- 每周发布进度更新
-- 回应用户反馈
-- 修复发现的 Bug
-- 计划 v1.1.0 功能
+> **重要**: 记得把所有的 `YOUR_USERNAME` 替换为你的 GitHub 用户名！
 
----
+## 🔍 文件位置索引
 
-## 🎁 额外建议
+所有准备好的文件：
 
-### 创建演示内容（推荐）
+```
+source-fetcher/
+├── dist/
+│   ├── source-fetcher-windows-amd64.exe  ← 上传这个
+│   └── source-fetcher-windows-386.exe    ← 上传这个
+│
+├── RELEASE_v1.1.0.md              ← Release 完整说明
+├── CREATE_GITHUB_RELEASE.md       ← 详细操作指南
+├── RELEASE_READY.md               ← 本文档
+│
+├── CHANGELOG.md                   ← 已更新
+├── version.go                     ← 版本号已更新
+├── main.go                        ← 版本号已更新
+│
+└── [11+ 文档文件]                 ← 都已准备好
+```
 
-1. **录制 GIF 演示**：
-   - TUI 界面使用
-   - 搜索和下载流程
-   - 保存为 `assets/demo.gif`
+## 🎓 推荐阅读顺序
 
-2. **录制视频教程**：
-   - YouTube: 5-10 分钟快速入门
-   - Bilibili: 中文教程
+1. **本文档** (`RELEASE_READY.md`) - 你现在在这里 ✅
+2. **CREATE_GITHUB_RELEASE.md** - 如果需要详细步骤
+3. **RELEASE_v1.1.0.md** - Release 说明内容
 
-3. **撰写博客文章**：
-   - 项目介绍
-   - 技术实现
-   - 使用案例
+## 💡 小提示
 
-### 建立社区渠道
+### 如果没有 GitHub CLI
 
-1. **Discord/Telegram**：
-   - 创建社区服务器
-   - 邀请用户加入
+安装 GitHub CLI 可以大大简化发布流程：
 
-2. **GitHub Discussions**：
-   - 启用 Discussions
-   - 创建欢迎帖
-   - 设置分类（Q&A、Ideas、Show and Tell）
+```powershell
+# 使用 Scoop 安装
+scoop install gh
 
----
+# 使用 Chocolatey 安装
+choco install gh
 
-## 🎊 恭喜！
+# 使用 winget 安装
+winget install --id GitHub.cli
 
-你的 Source Fetcher 项目现在已经：
+# 登录
+gh auth login
+```
 
-✅ **完全准备好**发布  
-✅ **Git 仓库已配置**完成  
-✅ **所有文件已提交**  
-✅ **版本标签已创建**  
+### 如果是首次发布
 
-**只需要在 GitHub 上创建仓库并推送即可！**
+- 确保 GitHub 仓库已创建
+- 确保代码已推送到 main 分支
+- 确保你有权限创建 Release
 
----
+### 如果遇到问题
+
+查看这些文档：
+- `CREATE_GITHUB_RELEASE.md` - 故障排除
+- `POST_INSTALL_GUIDE.md` - 安装后问题
+- `NEXT_STEPS.md` - 详细步骤
+
+## 🎊 发布成功后
+
+1. **测试安装** - 在新环境测试一键安装
+2. **更新 README** - 确保一键安装命令正确
+3. **分享消息** - 社交媒体、论坛等
+4. **收集反馈** - 关注 Issues 和 Discussions
+5. **规划下一版** - 查看 `PROJECT_STATUS.md`
 
 ## 📞 需要帮助？
 
-如果在发布过程中遇到问题：
+如果在创建 Release 过程中遇到问题：
 
-- 📧 Email: ckkhua89@gmail.com
-- 🔧 检查 GitHub Actions 日志
-- 📖 参考 GitHub 文档
-
----
-
-## 📝 快速命令参考
-
-```powershell
-# 当前位置
-cd d:\dy\source-fetcher
-
-# 查看当前状态
-git status
-git log --oneline -5
-git tag
-
-# 添加远程仓库（在 GitHub 创建仓库后）
-git remote add origin https://github.com/jiahe/source-fetcher.git
-
-# 推送代码
-git push -u origin main
-
-# 推送标签（触发 release）
-git push origin v1.0.0
-
-# 查看远程信息
-git remote -v
-```
+1. 查看 `CREATE_GITHUB_RELEASE.md` 的常见问题部分
+2. 在 GitHub Issues 提问
+3. 查看 GitHub 官方文档
 
 ---
 
-<div align="center">
+## 🚀 准备好了吗？
 
-**🚀 准备好了！去 GitHub 创建仓库吧！🚀**
+现在你可以：
 
-**祝你的项目大获成功！** ⭐🎉
+1. **使用 GitHub CLI**（如果已安装）:
+   ```powershell
+   git add . && git commit -m "release: v1.1.0" && git push origin main
+   gh release create v1.1.0 dist/*.exe --title "v1.1.0 - Cargo Install Support & One-Line Installation" --notes-file RELEASE_v1.1.0.md --latest
+   ```
 
-</div>
+2. **使用 GitHub 网页**:
+   - 运行上面 "第 1 步" 的 git 命令
+   - 打开浏览器按照 "第 2 步" 操作
+
+**预计时间**: 5-10 分钟
+
+**祝发布顺利！** 🎉
 
 ---
 
-**文档生成时间**: 2026-06-06  
-**Git Commit**: 3173ecd  
-**Version Tag**: v1.0.0  
-**Status**: ✅ Ready to push
+**文档创建时间**: 2026-06-06  
+**版本**: v1.1.0  
+**状态**: ✅ 准备就绪，可以发布

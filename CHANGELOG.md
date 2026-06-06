@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **⭐ Cargo build and install feature**: Automatic compilation and installation of Rust crates
+  - Three modes: source (default), build (`--cargo-build`), and install (`--cargo-install`)
+  - Source mode: Download and extract .crate source without Rust toolchain (v1.1.0 feature)
+  - Build mode: Automatically compile binaries with Rust toolchain
+  - Install mode: Compile and install to system (`~/.cargo/bin/`)
+  - Support for specifying binary name with `--cargo-bin` flag
+  - Intelligent error handling with manual compilation instructions
+  - Cross-platform support (Windows/Unix)
+  - PATH configuration detection and warnings
+
+### Technical Details
+- New `cargo_build.go` module with core compilation logic
+- `checkCargoAvailable()` - Check Rust toolchain availability
+- `buildCargoCrate()` - Execute cargo build with options
+- `installCargoBinary()` - Install compiled binary to system
+- `getCargoInstallDir()` - Get installation directory (~/.cargo/bin)
+- `findExecutables()` - Find compiled binaries
+- Updated `install_native.go` with optional compilation support
+- Added CLI flags: `--cargo-build`, `--cargo-install`, `--cargo-bin`
+- YAML configuration support for cargo build options
+
+### Documentation
+- Added `CARGO_BUILD_FEATURE.md` - Comprehensive user guide for cargo build feature
+- Added `CARGO_BUILD_IMPLEMENTATION.md` - Technical implementation summary
+- Added `CARGO_BUILD_SUMMARY.md` - Quick reference guide
+
 <!-- Future changes will be documented here -->
 
 ## [1.1.0] - 2026-06-06
